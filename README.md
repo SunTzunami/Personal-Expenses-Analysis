@@ -22,7 +22,7 @@ I use this analysis to determine where or when I should cut down on expenses, an
 *Note: It's still a big WIP, but I'm uploading it to GitHub as my close friends requested it.*
 
 ## Roadmap & Ideas
-1.  **Local AI Assistant (WIP)**: Refining the chat integration with Ollama to improve tool-calling reliability and analysis accuracy. A use case for this is to get the AI to recommend a custom financial plan based on spending habits.
+1.  **Local AI Assistant (WIP)**: Refining the chat integration with Ollama to improve tool-calling reliability and analysis accuracy. A use case for this is to get the LLM to recommend a custom financial plan based on spending habits.
 2.  **Predictive Analysis**: The cumulative expenses curve is usually linear and quite predictable. Using time series analysis, it should be possible to predict future expenses.
 3.  **Budgeting Alerts**: Setting threshold alerts when spending in a specific category exceeds a monthly average.
 4.  **Smart Category Mapping (WIP)**: An LLM-powered feature to analyze unique categories in uploaded files and suggest a draft mapping configuration, which users can then customize.
