@@ -5,7 +5,7 @@ import { CATEGORY_COLORS } from '../../utils/categoryMapping';
 
 const SunburstChart = ({ data, currency = 'JPY' }) => {
     if (!data || data.length === 0) {
-        return <div className="w-full h-full min-h-[500px] flex items-center justify-center text-slate-400">No data available</div>;
+        return <div className="w-full h-full min-h-[300px] flex items-center justify-center text-slate-400">No data available</div>;
     }
 
     // Aggregate data with unique IDs
@@ -67,7 +67,7 @@ const SunburstChart = ({ data, currency = 'JPY' }) => {
     const symbol = symbols[currency] || currency;
 
     return (
-        <div className="w-full h-full min-h-[500px]">
+        <div className="w-full h-full min-h-[300px]">
             <Plot
                 data={[
                     {

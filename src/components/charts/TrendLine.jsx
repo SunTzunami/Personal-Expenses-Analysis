@@ -29,7 +29,7 @@ const TrendLine = ({ data, currency = 'JPY' }) => {
     });
 
     return (
-        <div className="w-full h-full min-h-[400px]">
+        <div className="w-full h-full min-h-[250px]">
             <Plot
                 data={[
                     {

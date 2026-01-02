@@ -21,7 +21,7 @@ const CategoryPie = ({ data, currency = 'JPY' }) => {
     const symbol = symbols[currency] || currency;
 
     return (
-        <div className="w-full h-full min-h-[400px]">
+        <div className="w-full h-full min-h-[250px]">
             <Plot
                 data={[
                     {

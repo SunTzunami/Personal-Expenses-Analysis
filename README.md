@@ -3,9 +3,7 @@
 **A local-first web application for visualizing and analyzing personal financial data. Built with React, Vite, TailwindCSS, and local LLM integration (still a WIP).**
 
 > **Dedication:**
-> Thank you for your time. S/O to my dad, who told me to track my expenses, 10/10 advice that eventually resulted in this app.
-
-![App Screenshot](path/to/your/screenshot.png)
+> S/O to my dad, who told me to track my expenses, 10/10 advice that eventually resulted in this app.
 
 ## Background
 
@@ -21,8 +19,40 @@ I use this analysis to determine where or when I should cut down on expenses, an
 
 *Note: It's still a big WIP, but I'm uploading it to GitHub as my close friends requested it.*
 
+## Showcase
+
+<div align="center">
+  <p><b>1. Dashboard Overview & Core Metrics</b></p>
+  <img src="./images/dashboard_metrics.png" width="90%" />
+  <p><i>The mission control of your finances. Instantly see your total burn, daily averages, and behavioral insights like "Category Streaks" and "Biggest Splurge".</i></p>
+  <br/><br/>
+  <div style="display: flex; gap: 10px; justify-content: center;">
+    <div width="48%">
+      <img src="./images/spending_overview.png" />
+      <p><b>2. Spending Distribution</b><br/>Identify the chief pulls on liquidity at a glance.</p>
+    </div>
+    <div width="48%">
+      <img src="./images/calendar_heatmap.png" />
+      <p><b>3. Expense Heatmap</b><br/>Toggle between <i>Magnitude</i> and <i>Frequency</i> to differentiate between days with high magnitude of expenses and days with high number of transactions.</p>
+    </div>
+  </div>
+  <br/><br/>
+  <div style="display: flex; gap: 10px; justify-content: center;">
+    <div width="48%">
+      <img src="./images/detailed_breakdown.png" />
+      <p><b>4. Hierarchical Sunburst</b><br/>Drill down from broad categories (Food) to specific sub-tags (Grocery vs Dining) in one visual.</p>
+    </div>
+    <div width="48%">
+      <img src="./images/self_vs_others.png" />
+      <p><b>5. Personal vs. Shared</b><br/>To see how much I been spending on others vs. myself.</p>
+    </div>
+  </div>
+</div>
+
+
+
 ## Roadmap & Ideas
-1.  **Local AI Assistant (WIP)**: Refining the chat integration with Ollama to improve tool-calling reliability and analysis accuracy. A use case for this is to get the LLM to recommend a custom financial plan based on spending habits.
+1.  **Local AI Assistant (WIP)**: Refining the chat integration with Ollama to improve tool-calling reliability and analysis accuracy. A use case for this is to get the LLM to recommend a custom financial plan based on spending habits or get it to answer questions like "What are my top 3 expenses?" or "What are my top 3 categories?" or "Which day in XX month did I spend the most?" etc...
 2.  **Predictive Analysis**: The cumulative expenses curve is usually linear and quite predictable. Using time series analysis, it should be possible to predict future expenses.
 3.  **Budgeting Alerts**: Setting threshold alerts when spending in a specific category exceeds a monthly average.
 4.  **Smart Category Mapping (WIP)**: An LLM-powered feature to analyze unique categories in uploaded files and suggest a draft mapping configuration, which users can then customize.
@@ -76,7 +106,15 @@ The output will be in the `dist/` directory.
 
 ## Data Format Requirements
 
-The application expects an **Excel file (.xlsx or .xls)**. The first sheet should contain your data with the following columns:
+The application expects an **Excel file (.xlsx or .xls)**. 
+
+### Data Structure Examples
+- **Independent Entries**: Each row represents a single independent expense.
+- **Multiple Expenses per Date**: You can have multiple rows for the same date (e.g., three different items bought at different times).
+- **Zero-Expense Days**: If you have a day with no spending, it is recommended to log it with `0` to keep the timeline continuous.
+
+#### Visual Example:
+![Excel Format Example](./images/sample_expense_example.png)
 
 | Column | Description | Example |
 | :--- | :--- | :--- |
@@ -96,8 +134,10 @@ The application expects an **Excel file (.xlsx or .xls)**. The first sheet shoul
 
 The app is designed to be easily adapted to your personal logging style.
 
-### Custom Categories & Colors
-You can control how raw Excel categories are grouped and what colors appear in the charts by editing the config file.
+> [!IMPORTANT]
+> **Custom Mapping Required:** The current configuration in `src/utils/categoryMapping.js` is tailored to my specific Excel labels. You **must** create your own mapping file to match your raw excel categories as shown below.
+> 
+> *Future Work:* I am working on a feature to allow the local LLM to analyze any uploaded excel and generate these category mappings dynamically!
 
 **File:** [`src/utils/categoryMapping.js`](./javascript_app/src/utils/categoryMapping.js)
 
