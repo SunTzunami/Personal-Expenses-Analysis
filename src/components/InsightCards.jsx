@@ -150,7 +150,7 @@ const InsightCards = ({ data, currency = 'JPY' }) => {
                             onClick={() => setShowStreakDetails(!showStreakDetails)}
                             className="mt-3 text-[10px] font-bold text-purple-400/70 hover:text-purple-400 flex items-center gap-1 uppercase tracking-tighter"
                         >
-                            {showStreakDetails ? <><ChevronDown size={14} /> Hide Dates</> : <><ChevronRight size={14} /> Reveal Data</>}
+                            {showStreakDetails ? <><ChevronDown size={14} /> Hide Dates</> : <><ChevronRight size={14} /> Reveal Dates</>}
                         </button>
                     </div>
                 </div>
