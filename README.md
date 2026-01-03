@@ -7,11 +7,11 @@
 
 ## Background
 
-Back in the summer of 2022, I had the fortune of visiting McGill University to spend three months doing research, for which I received decent funding. My dad had advised me to log my expenses to monitor my spending, as it was my first time living independently. Like most 21-year-olds, I was a bit lazy at the time; I relied on simply checking my bank balance, counting the days left, and adjusting my spending accordingly. As a result, I think I saved less than I would've had I tracked my expenses properly.
+Back in the summer of 2022, I had the good fortune of visiting McGill University to spend three months conducting research, for which I received adequate funding. My dad had advised me to log my expenses to monitor my spending, as it was my first time living independently. Like most 21-year-olds, I was a bit lazy at the time; I relied on simply checking my bank balance, counting the days left, and adjusting my spending accordingly. As a result, I saved less than I would've had I tracked my expenses properly.
 
 When I moved to Tokyo for my first job in October 2023, I was determined to be more disciplined with my personal finances. I've been tracking my expenses diligently since day one, literally every expense I've incurred (to the best of my knowledge).
 
-I manually log all expenses every week or two in an Excel sheet which I have maintained since **2023/10/05** (retrieving the expenses from credit card statements and PayPay history; I rarely use cash, but I log that manually too). The logic behind this is that manual entry forces me to look at the Excel sheet and its huge list of past expenses, making me more cognizant of my spending. If I were just typing an expense into an app, I wouldn't see the past record or feel the cumulative impact of my spending habits.
+I manually log all expenses every week or two in an Excel sheet, which I have maintained since **2023/10/05** (retrieving the expenses from credit card statements and PayPay history; I rarely use cash, but I log that manually too). The logic behind this is that manual entry forces me to look at the Excel sheet and its huge list of past expenses, making me more cognizant of my spending. If I were just typing an expense into an app, I wouldn't see the previous expenses, thereby not feeling the cumulative impact of my spending habits.
 
 I decided to build this web app to perform analysis and visualizations on this data. I also wanted to experiment with a new tech stack and build something tailored specifically for my personal use case.
 
@@ -119,11 +119,11 @@ The application expects an **Excel file (.xlsx or .xls)**.
 | Column | Description | Example |
 | :--- | :--- | :--- |
 | **Date** | Date of the transaction | `2024-01-01` |
-| **Description** | Name of merchant or item | `Starbucks` |
 | **Expense** | Amount spent (positive number) | `550` |
-| **Category** | Your raw category label | `dining` |
-| **onetime** | (Optional) `1` if it's a large one-time purchase | `0` |
-| **for others**| (Optional) `1` if you paid for someone else | `0` |
+| **remarks** | My comments or notes about the spend | `Dinner at Pizzakaya with friend A and friend B` |
+| **category** | Raw category label I assign to the expense | `dining` |
+| **onetime** | (Optional) `1` if it's a one-time purchase or a rare purchase | `0` |
+| **for others**| (Optional) `1` if I buy something for my parents or treat some juniors, etc. (expenses where I'm not the direct beneficiary) | `0` |
 
 > [!TIP]
 > Use the **"Try with Demo Data"** button on the home screen to see the app in action and understand the required data structure.
@@ -139,7 +139,7 @@ The app is designed to be easily adapted to your personal logging style.
 > 
 > *Future Work:* I am working on a feature to allow the local LLM to analyze any uploaded excel and generate these category mappings dynamically!
 
-**File:** [`src/utils/categoryMapping.js`](./javascript_app/src/utils/categoryMapping.js)
+**File:** [`src/utils/categoryMapping.js`](./src/utils/categoryMapping.js)
 
 1.  **Map your keywords**: Add your Excel category strings to the `CATEGORY_MAPPING` object.
     ```javascript
@@ -182,4 +182,4 @@ To enable the "**Ask AI Assistant**" feature for natural language analysis:
     ```
 
 4.  **Analyze**:
-    Open the app, click "Ask AI Assistant" in the sidebar, choose your model, and ask away!
+    Open the app, click "Ask AI Assistant" in the sidebar, choose your model, and ask away.
