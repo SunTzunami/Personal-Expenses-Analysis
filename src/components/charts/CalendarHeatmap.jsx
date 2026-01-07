@@ -305,7 +305,7 @@ const CalendarHeatmap = ({ data, currency = 'JPY' }) => {
                                 <div className="text-xs text-primary font-medium flex items-center gap-1">
                                     {correlation.toFixed(2)} — {getCorrelationLabel(correlation)}
                                 </div>
-                                <div className="absolute top-full left-0 mt-2 w-72 p-4 bg-slate-900/95 border border-white/20 rounded-xl shadow-2xl text-[12px] text-slate-300 hidden group-hover:block z-[100] backdrop-blur-xl animate-in fade-in zoom-in duration-200">
+                                <div className="absolute bottom-full right-0 mb-2 w-72 p-4 bg-slate-900/95 border border-white/20 rounded-xl shadow-2xl text-[12px] text-slate-300 hidden group-hover:block z-[100] backdrop-blur-xl animate-in fade-in zoom-in duration-200">
                                     <div className="flex items-center gap-2 mb-2">
                                         <div className="p-1.5 bg-primary/20 rounded-lg">
                                             <Info size={14} className="text-primary" />
@@ -329,6 +329,7 @@ const CalendarHeatmap = ({ data, currency = 'JPY' }) => {
                                         <p>• Monitoring this helps identify if saving efforts should focus on reducing transaction frequency or purchase magnitude.</p>
                                         <p className="text-primary/70">• Tip: Disable "Include Rent" in the sidebar to remove large fixed costs and see your true daily spending correlation.</p>
                                     </div>
+                                    <div className="absolute top-full right-1 w-2 h-2 bg-slate-900 border-r border-b border-white/20 rotate-45 -translate-y-1/2"></div>
                                 </div>
                             </div>
                         )}

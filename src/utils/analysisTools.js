@@ -109,73 +109,109 @@ export function executeTool(toolName, args, data) {
 
 /**
  * Get metadata for the LLM prompt.
+ * Includes column names, data types, unique categories, and category mapping.
  */
 export function getPromptMetadata(data) {
-    if (!data || data.length === 0) return { columns: [], uniqueCategories: [], uniqueNewCategories: [] };
+    if (!data || data.length === 0) return {
+        columns: [],
+        columnTypes: {},
+        uniqueCategories: [],
+        uniqueNewCategories: [],
+        categoryMapping: {}
+    };
 
     const columns = Object.keys(data[0]);
-    const uniqueCategories = [...new Set(data.map(d => d.Category))].filter(Boolean);
-    const uniqueNewCategories = [...new Set(data.map(d => d.NewCategory))].filter(Boolean);
+
+    // Infer column data types from first non-null value
+    const columnTypes = {};
+    columns.forEach(col => {
+        const sample = data.find(row => row[col] != null)?.[col];
+        if (sample instanceof Date) {
+            columnTypes[col] = 'datetime';
+        } else if (typeof sample === 'number') {
+            columnTypes[col] = 'float';
+        } else if (typeof sample === 'boolean') {
+            columnTypes[col] = 'boolean';
+        } else {
+            columnTypes[col] = 'string';
+        }
+    });
+
+    // Get unique values from Category (original/raw) and NewCategory (mapped/broad)
+    // Deduplicate case-insensitively for the prompt to reduce confusion
+    const normalizeUnique = (arr) => {
+        const seen = new Set();
+        return arr.filter(v => {
+            if (!v) return false;
+            const lower = v.toLowerCase();
+            if (seen.has(lower)) return false;
+            seen.add(lower);
+            return true;
+        }).sort();
+    };
+
+    const uniqueCategories = normalizeUnique(data.map(d => d.Category));
+    const uniqueNewCategories = normalizeUnique(data.map(d => d.NewCategory));
+
+    // Build mapping: original category → mapped category (case-insensitive deduplication)
+    const categoryMapping = {};
+    const seenMapping = new Set();
+    data.forEach(row => {
+        if (row.Category && row.NewCategory) {
+            const lowerOrig = row.Category.toLowerCase();
+            if (!seenMapping.has(lowerOrig)) {
+                categoryMapping[row.Category] = row.NewCategory;
+                seenMapping.add(lowerOrig);
+            }
+        }
+    });
 
     return {
         columns,
+        columnTypes,
         uniqueCategories,
-        uniqueNewCategories
+        uniqueNewCategories,
+        categoryMapping
     };
 }
 
 /**
- * Enhanced System Prompt Definitions for Python Analysis.
+ * Enhanced System Prompt for Python Analysis - Optimized for small local LLMs (<4B params).
+ * Placeholders: {{metadata}}, {{prompt}}
  */
-export const PYTHON_ANALYSIS_PROMPT = `
-You are an Expert Python Data Scientist specialized in Financial Analysis. 
-You are analyzing a DataFrame \`df\` containing expense records.
+export const PYTHON_ANALYSIS_PROMPT = `You are analyzing expense data in a pandas DataFrame called \`df\`.
 
-DataFrame Information:
 {{metadata}}
 
-USER REQUEST: "{{prompt}}"
+USER QUESTION: "{{prompt}}"
 
-GUIDELINES:
-1. **ENVIRONMENT & DATA (CRITICAL)**: 
-   - **DO NOT RECREATE THE DATAFRAME \`df\`**.
-   - **DO NOT** use \`df = pd.DataFrame(...)\` or hardcode any data.
-   - **DO NOT** import \`pandas\`, \`numpy\`, or \`io\`. They are ALREADY pre-imported and available.
-   - The global variable \`df\` contains the user's actual expense data. USE IT DIRECTLY.
-2. **Syntax**: 
-   - Use \`df[(df['col'] == val) & (df['col2'] == val2)]\` (Parentheses are mandatory).
-   - Use \`.str.contains('pattern', case=False, na=False)\` for text searching in columns.
-2. **Context & Strategy**:
-   - 'NewCategory' = Mapped/High-Level Groups.
-   - 'Category' = Original/Raw Categories.
-   - 'remarks' = Personal comments/details about the expense.
-   - **CRITICAL SEARCH LOGIC**: If the user asks for something (e.g., 'Starbucks', 'Gym', 'Futsal') that is NOT present in the unique values of 'Category' or 'NewCategory', you MUST search for it within the 'remarks' column using \`.str.contains()\`.
-4. **PRIORITIZE TEXT RESULTS**: 
-   - For simple questions (e.g., "Most expensive month?", "Total spent on X?"), ALWAYS provide the numeric/text answer in \`result\`.
-   - **SELECTIVE PLOTS**: Only create a \`fig\` if it adds significant value (e.g., trends, distributions, comparisons). Do not generate a plot for a single number.
-   - If a plot is useful, provide BOTH the text \`result\` and the \`fig\`.
-5. **Output**:
-   - Store final text/number answers in \`result\`.
-    - Store Plotly figure objects in \`fig\`.
-    - **DIRECT ASSIGNMENT ONLY**.
-    - Output ONLY executable Python code.
-    - **NO EXPLANATIONS, NO PREAMBLE, NO CONVERSATIONAL TEXT.**
-    - Your entire response will be passed to an interpreter. Any non-Python text outside of comments will cause an error.
-    - Do not say "Here is the code" or "I can help with that". Just provide the code.
+RULES:
+1. DO NOT create df. It already exists with all the data.
+2. DO NOT import pandas, numpy, or io. They are pre-imported as pd, np.
+3. Use parentheses for filtering: df[(df['col'] == val) & (df['col2'] == val2)]
+4. For text search use: df['col'].str.contains('text', case=False, na=False)
+
+SEARCH LOGIC (CRITICAL):
+- If query term is in MAPPED CATEGORIES list → filter by NewCategory column
+- If query term is in ORIGINAL CATEGORIES list → filter by Category column  
+- If query term is NOT in any category list → search in 'remarks' column
+
+OUTPUT:
+- Store text/number answer in \`result\` variable
+- Store Plotly figure in \`fig\` variable (only if visualization adds value)
+- Output ONLY Python code. No explanations.
 
 EXAMPLES:
-- Question: "How much did I spend on Starbucks?"
-  Code:
-  # 'starbucks' might not be a category, so search remarks
-  result = df[df['remarks'].str.contains('starbucks', case=False, na=False)]['Expense'].sum()
+# Q: "Total spent on Food?" (Food is in MAPPED CATEGORIES)
+result = df[df['NewCategory'] == 'Food']['Expense'].sum()
 
-- Question: "Total for Snacks in 2025?"
-  Code: result = df[(df['Date'].dt.year == 2025) & (df['NewCategory'] == 'snacks')]['Expense'].sum()
+# Q: "How much on snacks?" (snacks is in ORIGINAL CATEGORIES)
+result = df[df['Category'] == 'snacks']['Expense'].sum()
 
-- Question: "Daily spend trend for gym"
-  Code:
-  import plotly.express as px
-  gym_data = df[df['remarks'].str.contains('gym', case=False, na=False)]
-  fig = px.line(gym_data, x='Date', y='Expense', title='Gym Spending Trend')
+# Q: "How much on starbucks?" (starbucks is NOT in any category, search remarks)
+result = df[df['remarks'].str.contains('starbucks', case=False, na=False)]['Expense'].sum()
+
+# Q: "Snacks in 2025"
+result = df[(df['Date'].dt.year == 2025) & (df['Category'] == 'snacks')]['Expense'].sum()
 `;
 

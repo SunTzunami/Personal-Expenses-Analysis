@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 
 const InsightCards = ({ data, currency = 'JPY' }) => {
     const [showStreakDetails, setShowStreakDetails] = useState(false);
+    const [showSplurgeDetails, setShowSplurgeDetails] = useState(false);
 
     const formatCurrency = (val) => {
         if (typeof val !== 'number') return val;
@@ -23,13 +24,18 @@ const InsightCards = ({ data, currency = 'JPY' }) => {
     };
 
     // Find top spending day
-    const dailyTotals = {};
+    const dailyData = {};
     data.forEach(row => {
         const dateKey = format(row.Date, 'yyyy-MM-dd');
-        dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + row.Expense;
+        if (!dailyData[dateKey]) {
+            dailyData[dateKey] = { total: 0, items: [] };
+        }
+        dailyData[dateKey].total += row.Expense;
+        dailyData[dateKey].items.push(row);
     });
 
-    const topDay = Object.entries(dailyTotals).sort((a, b) => b[1] - a[1])[0];
+    const topDayEntry = Object.entries(dailyData).sort((a, b) => b[1].total - a[1].total)[0];
+    const topDay = topDayEntry ? { date: topDayEntry[0], total: topDayEntry[1].total, items: topDayEntry[1].items } : null;
 
     // Find longest category streak
     const sortedData = [...data].sort((a, b) => a.Date - b.Date);
@@ -104,18 +110,49 @@ const InsightCards = ({ data, currency = 'JPY' }) => {
                             <p className="text-xs text-slate-400 uppercase tracking-widest font-semibold">Biggest Splurge</p>
                             <div className="group/tip relative">
                                 <Info size={12} className="text-slate-600 hover:text-red-400 cursor-help transition-colors" />
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-900 border border-white/10 rounded-lg shadow-xl text-[10px] text-slate-300 hidden group-hover/tip:block z-[100] backdrop-blur-md">
+                                <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-slate-900 border border-white/10 rounded-lg shadow-xl text-[10px] text-slate-300 hidden group-hover/tip:block z-[100] backdrop-blur-md">
                                     The single highest total amount spent in one calendar day.
                                     <p className="mt-1 text-red-400/80 italic font-medium">Helps identify "peak" spending events.</p>
+                                    <div className="absolute top-full right-1 w-2 h-2 bg-slate-900 border-r border-b border-white/10 rotate-45 -translate-y-1/2"></div>
                                 </div>
                             </div>
                         </div>
-                        <p className="text-3xl font-bold text-white tracking-tight">{topDay?.[1] ? formatCurrency(topDay[1]) : '-'}</p>
-                        <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
-                            <Calendar size={12} /> {topDay?.[0] && format(new Date(topDay[0]), 'MMMM dd, yyyy')}
+                        <p className="text-3xl font-bold text-white tracking-tight">{topDay?.total ? formatCurrency(topDay.total) : '-'}</p>
+                        <p className="text-xs text-slate-500 mt-2 flex items-center justify-between">
+                            <span className="flex items-center gap-1">
+                                <Calendar size={12} /> {topDay?.date && format(new Date(topDay.date), 'MMMM dd, yyyy')}
+                            </span>
+                            <button
+                                onClick={() => setShowSplurgeDetails(!showSplurgeDetails)}
+                                className="text-[10px] font-bold text-red-400/70 hover:text-red-400 flex items-center gap-1 uppercase tracking-tighter"
+                            >
+                                {showSplurgeDetails ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                {showSplurgeDetails ? 'Hide' : 'Details'}
+                            </button>
                         </p>
                     </div>
                 </div>
+
+                <AnimatePresence>
+                    {showSplurgeDetails && (
+                        <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="mt-4 pt-4 border-t border-white/5 space-y-2 overflow-hidden"
+                        >
+                            <p className="text-[10px] text-slate-500 uppercase">Splurge Breakdown</p>
+                            <div className="space-y-1 px-1">
+                                {topDay?.items.map((item, idx) => (
+                                    <div key={idx} className="flex justify-between items-center text-[11px] text-slate-400 bg-white/5 px-2 py-1.5 rounded border border-white/5">
+                                        <span className="truncate max-w-[140px]">{item.Remark || item.Description || item.Category}</span>
+                                        <span className="font-bold text-white shrink-0 ml-2">{formatCurrency(item.Expense)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </motion.div>
 
             {/* Category Streak */}
@@ -134,9 +171,10 @@ const InsightCards = ({ data, currency = 'JPY' }) => {
                             <p className="text-xs text-slate-400 uppercase tracking-widest font-semibold">Category Streak</p>
                             <div className="group/tip relative">
                                 <Info size={12} className="text-slate-600 hover:text-purple-400 cursor-help transition-colors" />
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2 bg-slate-900 border border-white/10 rounded-lg shadow-xl text-[10px] text-slate-300 hidden group-hover/tip:block z-[100] backdrop-blur-md">
+                                <div className="absolute bottom-full right-0 mb-2 w-56 p-2 bg-slate-900 border border-white/10 rounded-lg shadow-xl text-[10px] text-slate-300 hidden group-hover/tip:block z-[100] backdrop-blur-md">
                                     The longest period where the same category was your #1 spending daily.
                                     <p className="mt-1 text-purple-400/80 italic font-medium">Shows persistent spending habits or "binge" behavior.</p>
+                                    <div className="absolute top-full right-1 w-2 h-2 bg-slate-900 border-r border-b border-white/10 rotate-45 -translate-y-1/2"></div>
                                 </div>
                             </div>
                         </div>
@@ -192,9 +230,10 @@ const InsightCards = ({ data, currency = 'JPY' }) => {
                             <p className="text-xs text-slate-400 uppercase tracking-widest font-semibold">Priciest Category</p>
                             <div className="group/tip relative">
                                 <Info size={12} className="text-slate-600 hover:text-blue-400 cursor-help transition-colors" />
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2 bg-slate-900 border border-white/10 rounded-lg shadow-xl text-[10px] text-slate-300 hidden group-hover/tip:block z-[100] backdrop-blur-md">
+                                <div className="absolute bottom-full right-0 mb-2 w-56 p-2 bg-slate-900 border border-white/10 rounded-lg shadow-xl text-[10px] text-slate-300 hidden group-hover/tip:block z-[100] backdrop-blur-md">
                                     The category with the highest <strong>average cost per transaction</strong>.
                                     <p className="mt-1 text-blue-400/80 italic font-medium">Identifies where each "swipe" hurts the most.</p>
+                                    <div className="absolute top-full right-1 w-2 h-2 bg-slate-900 border-r border-b border-white/10 rotate-45 -translate-y-1/2"></div>
                                 </div>
                             </div>
                         </div>

@@ -397,9 +397,10 @@ function App() {
               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Category Spending</h3>
               <div className="group/tip relative">
                 <Info size={14} className="text-slate-600 hover:text-primary cursor-help transition-colors" />
-                <div className="absolute bottom-full left-0 mb-2 w-64 p-3 bg-slate-900 border border-white/10 rounded-xl shadow-2xl text-[11px] text-slate-300 hidden group-hover/tip:block z-[100] backdrop-blur-xl">
+                <div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-slate-900 border border-white/10 rounded-xl shadow-2xl text-[11px] text-slate-300 hidden group-hover/tip:block z-[100] backdrop-blur-xl">
                   Shows the distribution of your expenses across different categories.
                   <p className="mt-2 text-primary/80 italic font-medium">Use this to identify which areas of your life consume the most capital.</p>
+                  <div className="absolute top-full right-1 w-2 h-2 bg-slate-900 border-r border-b border-white/10 rotate-45 -translate-y-1/2"></div>
                 </div>
               </div>
             </div>

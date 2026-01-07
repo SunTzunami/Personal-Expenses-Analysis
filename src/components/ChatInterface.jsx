@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Send, X, Bot, User, Loader2, Database, AlertCircle, RefreshCw } from 'lucide-react';
+import { MessageSquare, Send, X, Bot, User, Loader2, Database, AlertCircle, RefreshCw, Clock } from 'lucide-react';
 import { checkOllamaConnection, listModels, chatWithOllama } from '../utils/ollama';
 import { PYTHON_ANALYSIS_PROMPT, getPromptMetadata } from '../utils/analysisTools';
 import { runPython, initPyodide } from '../utils/pythonRunner';
@@ -15,6 +14,7 @@ export default function ChatInterface({ data, onClose, visible, currency }) {
     const [selectedModel, setSelectedModel] = useState('');
     const [isConnected, setIsConnected] = useState(false);
     const [connectionError, setConnectionError] = useState(null);
+    const [elapsedTime, setElapsedTime] = useState(0);
 
     const messagesEndRef = useRef(null);
 
@@ -31,6 +31,20 @@ export default function ChatInterface({ data, onClose, visible, currency }) {
             initializeOllama();
         }
     }, [visible]);
+
+    // Live Timer Effect
+    useEffect(() => {
+        let interval;
+        if (isLoading) {
+            const start = performance.now();
+            interval = setInterval(() => {
+                setElapsedTime(((performance.now() - start) / 1000).toFixed(1));
+            }, 100);
+        } else {
+            clearInterval(interval);
+        }
+        return () => clearInterval(interval);
+    }, [isLoading]);
 
     const initializeOllama = async () => {
         setIsLoading(true);
@@ -75,18 +89,31 @@ export default function ChatInterface({ data, onClose, visible, currency }) {
         setIsLoading(true);
 
         try {
+            const startTime = performance.now();
             // 1. Gather Metadata
             const metadata = getPromptMetadata(data);
             const dateContext = data && data.length > 0
                 ? `Date Range: ${new Date(Math.min(...data.map(d => new Date(d.Date)))).toISOString().split('T')[0]} to ${new Date(Math.max(...data.map(d => new Date(d.Date)))).toISOString().split('T')[0]}`
                 : "";
 
+            // Build column info with types
+            const columnInfo = metadata.columns.map(col =>
+                `${col}: ${metadata.columnTypes[col] || 'unknown'}`
+            ).join(', ');
+
+            // Build category mapping string
+            const mappingStr = Object.entries(metadata.categoryMapping)
+                .map(([orig, mapped]) => `${orig} → ${mapped}`)
+                .join(', ');
+
             const metadataStr = `
-Available Columns: ${metadata.columns.join(', ')}
+COLUMNS: ${columnInfo}
 ${dateContext}
-Unique Mapped Categories (NewCategory): ${metadata.uniqueNewCategories.join(', ')}
-Unique Original Categories (Category): ${metadata.uniqueCategories.join(', ')}
-User's Chosen Currency: ${currency}
+
+SPECIFIC CATEGORIES (search in Category column): ${metadata.uniqueCategories.join(', ')}
+BROAD GROUPS (search in NewCategory column): ${metadata.uniqueNewCategories.join(', ')}
+
+MAPPINGS (for context): ${mappingStr}
             `;
 
             // 2. Execute Analysis (Attempt Backend First)
@@ -130,18 +157,26 @@ User's Chosen Currency: ${currency}
             // 3. Final Summary (only if not already summarized by backend)
             let finalContent = result;
             if (!backend && result && result !== 'None' && result.length < 500) {
+                const summaryPrompt = `Summarize the result in one natural sentence in the same language as the user's question.
+CRITICAL: YOU MUST USE THE EXACT NUMBER FROM THE RESULT. DO NOT CHANGE, ROUND, OR ADD DIGITS.
+Currency: ${currency}`;
+
                 const summaryResponse = await chatWithOllama(selectedModel, [
-                    { role: 'system', content: `Summarize the analysis result for the user in one natural sentence. The user's currency is ${currency}.` },
+                    { role: 'system', content: summaryPrompt },
                     { role: 'user', content: `Question: ${currentInput}\nResult: ${result}` }
                 ], false);
                 finalContent = summaryResponse.content;
             }
 
+            const endTime = performance.now();
+            const durationSec = ((endTime - startTime) / 1000).toFixed(1);
+
             setMessages(prev => [...prev, {
                 role: 'assistant',
                 content: finalContent || (fig ? "I've generated a visualization for you." : "Analysis complete."),
                 fig: fig ? JSON.parse(fig) : null,
-                code: code
+                code: code,
+                executionTime: durationSec
             }]);
 
         } catch (error) {
@@ -241,14 +276,23 @@ User's Chosen Currency: ${currency}
                                 </div>
                             )}
 
-                            {msg.code && (
-                                <details className="mt-2 opacity-50 text-[10px]">
-                                    <summary className="cursor-pointer hover:underline">View Logic</summary>
-                                    <pre className="mt-1 p-2 bg-black/40 rounded overflow-x-auto">
-                                        {msg.code}
-                                    </pre>
-                                </details>
-                            )}
+                            <div className="flex items-center justify-between mt-2">
+                                {msg.code && (
+                                    <details className="opacity-50 text-[10px]">
+                                        <summary className="cursor-pointer hover:underline">View Logic</summary>
+                                        <pre className="mt-1 p-2 bg-black/40 rounded overflow-x-auto">
+                                            {msg.code}
+                                        </pre>
+                                    </details>
+                                )}
+
+                                {msg.executionTime && (
+                                    <div className="flex items-center gap-1 text-[10px] text-slate-500 ml-auto">
+                                        <Clock size={10} />
+                                        <span>{msg.executionTime}s</span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </motion.div>
                 ))}
@@ -260,7 +304,7 @@ User's Chosen Currency: ${currency}
                         </div>
                         <div className="bg-slate-800 p-3 rounded-2xl flex items-center gap-2">
                             <Loader2 size={16} className="animate-spin text-slate-400" />
-                            <span className="text-xs text-slate-400">Thinking...</span>
+                            <span className="text-xs text-slate-400">Thinking ({elapsedTime}s)...</span>
                         </div>
                     </div>
                 )}
