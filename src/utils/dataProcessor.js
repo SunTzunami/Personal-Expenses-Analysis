@@ -29,11 +29,12 @@ export const processExcelFile = async (file) => {
                             dateObj = new Date(Date.parse(row.Date || row.date));
                         }
 
-                        // Robust header selection
-                        const rawCategory = row.category || row.Category || 'Unknown';
+                        // Robust header selection based on uploaded Excel
+                        const rawCategory = row.category || 'Unknown';
                         const rawExpense = row.Expense || row.expense || 0;
-                        const onetime = row.onetime || row.Onetime || 0;
-                        const forOthers = row['for others'] || row['For Others'] || 0;
+                        const remarks = row.remarks || '';
+                        const onetime = row.onetime || 0;
+                        const forOthers = row['for others'] || 0;
 
                         // Map category
                         const newCategory = CATEGORY_MAPPING[rawCategory] || rawCategory;
@@ -42,13 +43,15 @@ export const processExcelFile = async (file) => {
                             ...row,
                             Date: dateObj,
                             Expense: parseFloat(rawExpense) || 0,
-                            Category: rawCategory,
+                            remarks: remarks,
+                            category: rawCategory,
+                            Category: rawCategory, // Keep both for safety
                             NewCategory: newCategory,
                             Onetime: onetime == 1,
                             'for others': forOthers == 1 ? 1 : 0
                         };
                     })
-                    .filter(row => row.Expense !== 0); // Filter out 0 expenses (NaN categories)
+                    .filter(row => row.Expense > 0); // Filter out 0 expenses (days with no spending)
 
                 resolve(processedData);
             } catch (error) {

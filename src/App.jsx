@@ -182,7 +182,7 @@ function App() {
                 </div>
               )}
 
-              {filters.type === 'Year' && (
+              {(filters.type === 'Year' || filters.type === 'Month') && (
                 <div className="space-y-2">
                   <label className="text-sm text-slate-400">Select Year</label>
                   <select
@@ -487,7 +487,8 @@ function App() {
       <ChatInterface
         visible={showChat}
         onClose={() => setShowChat(false)}
-        data={filteredData}
+        data={rawData}
+        currency={currency}
       />
     </div>
   );

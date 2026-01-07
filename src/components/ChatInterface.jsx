@@ -3,9 +3,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, Send, X, Bot, User, Loader2, Database, AlertCircle, RefreshCw } from 'lucide-react';
 import { checkOllamaConnection, listModels, chatWithOllama } from '../utils/ollama';
-import { TOOL_DEFINITIONS, executeTool } from '../utils/analysisTools';
+import { PYTHON_ANALYSIS_PROMPT, getPromptMetadata } from '../utils/analysisTools';
+import { runPython, initPyodide } from '../utils/pythonRunner';
+import Plotly from 'plotly.js-dist-min';
 
-export default function ChatInterface({ data, onClose, visible }) {
+export default function ChatInterface({ data, onClose, visible, currency }) {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -32,22 +34,35 @@ export default function ChatInterface({ data, onClose, visible }) {
 
     const initializeOllama = async () => {
         setIsLoading(true);
-        const connected = await checkOllamaConnection();
-        setIsConnected(connected);
+        try {
+            const connected = await checkOllamaConnection();
+            setIsConnected(connected);
 
-        if (connected) {
-            setConnectionError(null);
-            const availableModels = await listModels();
-            setModels(availableModels);
-            if (availableModels.length > 0) {
-                // Prefer llama3 or mistral if available, else first one
-                const preferred = availableModels.find(m => m.includes('llama3') || m.includes('mistral')) || availableModels[0];
-                setSelectedModel(preferred);
+            if (connected) {
+                setConnectionError(null);
+                const availableModels = await listModels();
+                setModels(availableModels);
+                if (availableModels.length > 0) {
+                    const preferred = availableModels.find(m => m.includes('coder') || m.includes('llama3')) || availableModels[0];
+                    setSelectedModel(preferred);
+                }
+
+                // Proactively init Pyodide
+                try {
+                    await initPyodide();
+                } catch (e) {
+                    console.error("Failed to init Pyodide:", e);
+                }
+            } else {
+                setConnectionError("Could not connect to Ollama. Make sure it's running.");
             }
-        } else {
-            setConnectionError("Could not connect to Ollama. Make sure it's running.");
+        } catch (error) {
+            console.error("Chat initialization failed:", error);
+            setIsConnected(false);
+            setConnectionError("Initialization failed. Check console for details.");
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
     };
 
     const handleSend = async () => {
@@ -55,77 +70,82 @@ export default function ChatInterface({ data, onClose, visible }) {
 
         const userMessage = { role: 'user', content: input };
         setMessages(prev => [...prev, userMessage]);
+        const currentInput = input;
         setInput('');
         setIsLoading(true);
 
         try {
-            // 1. Initial System Prompt with Tools
-            const systemPrompt = `You are a professional financial data analyst. 
-You are helping the user analyze their personal expenses.
-${TOOL_DEFINITIONS}
+            // 1. Gather Metadata
+            const metadata = getPromptMetadata(data);
+            const dateContext = data && data.length > 0
+                ? `Date Range: ${new Date(Math.min(...data.map(d => new Date(d.Date)))).toISOString().split('T')[0]} to ${new Date(Math.max(...data.map(d => new Date(d.Date)))).toISOString().split('T')[0]}`
+                : "";
 
-CRITICAL: 
-- If a question requires calculations or data lookups, you MUST use a tool.
-- When calling a tool, your entire response must be ONLY the JSON object.
-- Do not explain that you are calling a tool.
-- If the user asks a general question, answer normally.`;
+            const metadataStr = `
+Available Columns: ${metadata.columns.join(', ')}
+${dateContext}
+Unique Mapped Categories (NewCategory): ${metadata.uniqueNewCategories.join(', ')}
+Unique Original Categories (Category): ${metadata.uniqueCategories.join(', ')}
+User's Chosen Currency: ${currency}
+            `;
 
-            const initialMessages = [
-                { role: 'system', content: systemPrompt },
-                ...messages,
-                userMessage
-            ];
+            // 2. Execute Analysis (Attempt Backend First)
+            const analysisResult = await runPython(null, data, {
+                prompt: currentInput,
+                metadata: metadataStr,
+                currency: currency,
+                model: selectedModel
+            });
 
-            // 2. Chat with Ollama
-            let response = await chatWithOllama(selectedModel, initialMessages, false);
+            let { result, fig, code, backend } = analysisResult;
 
-            // 3. Check for Tool Call
-            let assistantMessage = response;
-            try {
-                // Improved Heuristic to find JSON (handling markdown and chatter)
-                const content = assistantMessage.content.trim();
-                const jsonMatch = content.match(/\{[\s\S]*\}/);
+            if (!backend) {
+                // Fallback Logic: Get Code from LLM First
+                setMessages(prev => [...prev, {
+                    role: 'assistant',
+                    content: "Backend offline. Running in-browser (slower)...",
+                    isSystem: true
+                }]);
 
-                if (jsonMatch) {
-                    let toolCall;
-                    try {
-                        toolCall = JSON.parse(jsonMatch[0]);
-                    } catch (e) {
-                        // Try cleaning up if model was chatty around the JSON
-                        const cleaned = jsonMatch[0].replace(/```json/g, '').replace(/```/g, '').trim();
-                        toolCall = JSON.parse(cleaned);
-                    }
+                const systemPrompt = PYTHON_ANALYSIS_PROMPT
+                    .replace('{{metadata}}', metadataStr)
+                    .replace('{{prompt}}', currentInput);
 
-                    if (toolCall.tool && toolCall.args) {
-                        // It's a tool call!
-                        setMessages(prev => [...prev, { role: 'assistant', content: "Analyzing data...", isToolCall: true }]);
+                const response = await chatWithOllama(selectedModel, [
+                    { role: 'system', content: systemPrompt },
+                    ...messages.filter(m => m.role !== 'system'),
+                    userMessage
+                ], false);
 
-                        // Execute Tool
-                        const result = executeTool(toolCall.tool, toolCall.args, data);
+                code = response.content.trim();
+                const pythonMatch = code.match(/```python\s*([\s\S]*?)```/);
+                const genericMatch = code.match(/```\s*([\s\S]*?)```/);
+                code = pythonMatch ? pythonMatch[1].trim() : (genericMatch ? genericMatch[1].trim() : code.replace(/```python/g, '').replace(/```/g, '').trim());
 
-                        // Send Result back to LLM
-                        const toolOutputMessage = {
-                            role: 'system',
-                            content: `Tool '${toolCall.tool}' Output: ${JSON.stringify(result, null, 2)}. \n\nNow answer the user's question based on this data.`
-                        };
-
-                        const followUpMessages = [...initialMessages, assistantMessage, toolOutputMessage];
-
-                        // Get final answer
-                        response = await chatWithOllama(selectedModel, followUpMessages, true, (chunk) => {
-                            // Optional: Handle streaming updates here if we want to show typing effect for final answer
-                        });
-                        assistantMessage = response;
-                    }
-                }
-            } catch (e) {
-                // Not a JSON or failed to parse, just treat as normal text
-                console.log("No valid tool call found or parse error", e);
+                const localResult = await runPython(code, data);
+                result = localResult.result;
+                fig = localResult.fig;
             }
 
-            setMessages(prev => [...prev, { ...assistantMessage, role: 'assistant' }]);
+            // 3. Final Summary (only if not already summarized by backend)
+            let finalContent = result;
+            if (!backend && result && result !== 'None' && result.length < 500) {
+                const summaryResponse = await chatWithOllama(selectedModel, [
+                    { role: 'system', content: `Summarize the analysis result for the user in one natural sentence. The user's currency is ${currency}.` },
+                    { role: 'user', content: `Question: ${currentInput}\nResult: ${result}` }
+                ], false);
+                finalContent = summaryResponse.content;
+            }
+
+            setMessages(prev => [...prev, {
+                role: 'assistant',
+                content: finalContent || (fig ? "I've generated a visualization for you." : "Analysis complete."),
+                fig: fig ? JSON.parse(fig) : null,
+                code: code
+            }]);
 
         } catch (error) {
+            console.error(error);
             setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${error.message}`, isError: true }]);
         } finally {
             setIsLoading(false);
@@ -203,15 +223,32 @@ CRITICAL:
                         key={i}
                         className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
                     >
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'user' ? 'bg-indigo-500' : msg.isToolCall ? 'bg-amber-500/20 text-amber-500' : 'bg-primary/20 text-primary'}`}>
-                            {msg.role === 'user' ? <User size={14} /> : msg.isToolCall ? <Database size={14} /> : <Bot size={14} />}
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'user' ? 'bg-indigo-500' :
+                            msg.isSystem ? 'bg-slate-700 text-slate-400' :
+                                'bg-primary/20 text-primary'}`}>
+                            {msg.role === 'user' ? <User size={14} /> : msg.isSystem ? <Database size={14} /> : <Bot size={14} />}
                         </div>
                         <div className={`p-3 rounded-2xl max-w-[85%] text-sm ${msg.isError ? 'bg-red-500/10 text-red-200 border border-red-500/20' :
                             msg.role === 'user' ? 'bg-indigo-600 text-white' :
-                                msg.isToolCall ? 'bg-amber-500/10 text-amber-200 border border-amber-500/20 italic' :
+                                msg.isSystem ? 'bg-slate-800/50 text-slate-400 italic' :
                                     'bg-slate-800 text-slate-200'
                             }`}>
                             {msg.content}
+
+                            {msg.fig && (
+                                <div className="mt-4 bg-white rounded-lg p-2 overflow-hidden">
+                                    <PlotlyChart data={msg.fig} />
+                                </div>
+                            )}
+
+                            {msg.code && (
+                                <details className="mt-2 opacity-50 text-[10px]">
+                                    <summary className="cursor-pointer hover:underline">View Logic</summary>
+                                    <pre className="mt-1 p-2 bg-black/40 rounded overflow-x-auto">
+                                        {msg.code}
+                                    </pre>
+                                </details>
+                            )}
                         </div>
                     </motion.div>
                 ))}
@@ -253,4 +290,22 @@ CRITICAL:
             </div>
         </motion.div>
     );
+}
+
+function PlotlyChart({ data }) {
+    const containerRef = useRef(null);
+    useEffect(() => {
+        if (containerRef.current && data) {
+            Plotly.newPlot(containerRef.current, data.data, {
+                ...data.layout,
+                autosize: true,
+                margin: { l: 40, r: 20, t: 40, b: 40 },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#333' }
+            }, { responsive: true, displayModeBar: true });
+        }
+    }, [data]);
+
+    return <div ref={containerRef} className="w-full h-64" />;
 }
