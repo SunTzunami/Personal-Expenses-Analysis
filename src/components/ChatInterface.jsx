@@ -11,7 +11,8 @@ export default function ChatInterface({ data, onClose, visible, currency }) {
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [models, setModels] = useState([]);
-    const [selectedModel, setSelectedModel] = useState('');
+    const [selectedCodeModel, setSelectedCodeModel] = useState('');
+    const [selectedChatModel, setSelectedChatModel] = useState('');
     const [isConnected, setIsConnected] = useState(false);
     const [connectionError, setConnectionError] = useState(null);
     const [elapsedTime, setElapsedTime] = useState(0);
@@ -58,7 +59,8 @@ export default function ChatInterface({ data, onClose, visible, currency }) {
                 setModels(availableModels);
                 if (availableModels.length > 0) {
                     const preferred = availableModels.find(m => m.includes('coder') || m.includes('llama3')) || availableModels[0];
-                    setSelectedModel(preferred);
+                    setSelectedCodeModel(preferred);
+                    setSelectedChatModel(preferred);
                 }
 
                 // Proactively init Pyodide
@@ -80,7 +82,7 @@ export default function ChatInterface({ data, onClose, visible, currency }) {
     };
 
     const handleSend = async () => {
-        if (!input.trim() || !selectedModel) return;
+        if (!input.trim() || !selectedCodeModel) return;
 
         const userMessage = { role: 'user', content: input };
         setMessages(prev => [...prev, userMessage]);
@@ -110,8 +112,8 @@ export default function ChatInterface({ data, onClose, visible, currency }) {
 COLUMNS: ${columnInfo}
 ${dateContext}
 
-SPECIFIC CATEGORIES (search in Category column): ${metadata.uniqueCategories.join(', ')}
-BROAD GROUPS (search in NewCategory column): ${metadata.uniqueNewCategories.join(', ')}
+SPECIFIC CATEGORIES (search in category column): ${metadata.uniqueCategories.join(', ')}
+BROAD GROUPS (search in major category column): ${metadata.uniqueNewCategories.join(', ')}
 
 MAPPINGS (for context): ${mappingStr}
             `;
@@ -121,7 +123,8 @@ MAPPINGS (for context): ${mappingStr}
                 prompt: currentInput,
                 metadata: metadataStr,
                 currency: currency,
-                model: selectedModel
+                model: selectedCodeModel,
+                chatModel: selectedChatModel
             });
 
             let { result, fig, code, backend } = analysisResult;
@@ -138,7 +141,7 @@ MAPPINGS (for context): ${mappingStr}
                     .replace('{{metadata}}', metadataStr)
                     .replace('{{prompt}}', currentInput);
 
-                const response = await chatWithOllama(selectedModel, [
+                const response = await chatWithOllama(selectedCodeModel, [
                     { role: 'system', content: systemPrompt },
                     ...messages.filter(m => m.role !== 'system'),
                     userMessage
@@ -161,7 +164,7 @@ MAPPINGS (for context): ${mappingStr}
 CRITICAL: YOU MUST USE THE EXACT NUMBER FROM THE RESULT. DO NOT CHANGE, ROUND, OR ADD DIGITS.
 Currency: ${currency}`;
 
-                const summaryResponse = await chatWithOllama(selectedModel, [
+                const summaryResponse = await chatWithOllama(selectedChatModel, [
                     { role: 'system', content: summaryPrompt },
                     { role: 'user', content: `Question: ${currentInput}\nResult: ${result}` }
                 ], false);
@@ -194,7 +197,7 @@ Currency: ${currency}`;
             initial={{ opacity: 0, x: 300 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 300 }}
-            className="fixed right-0 top-0 bottom-0 w-96 glass-panel border-l border-white/10 z-50 flex flex-col shadow-2xl bg-slate-900/95 backdrop-blur-xl"
+            className="fixed right-0 top-0 bottom-0 w-[600px] glass-panel border-l border-white/10 z-50 flex flex-col shadow-2xl bg-slate-900/95 backdrop-blur-xl"
         >
             {/* Header */}
             <div className="p-4 border-b border-white/10 flex justify-between items-center bg-slate-800/50">
@@ -215,13 +218,26 @@ Currency: ${currency}`;
                 </div>
 
                 {isConnected && (
-                    <select
-                        value={selectedModel}
-                        onChange={(e) => setSelectedModel(e.target.value)}
-                        className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-slate-300 outline-none focus:border-primary max-w-[150px]"
-                    >
-                        {models.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
+                    <div className="flex gap-2">
+                        <select
+                            value={selectedCodeModel}
+                            onChange={(e) => setSelectedCodeModel(e.target.value)}
+                            className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-slate-300 outline-none focus:border-primary max-w-[150px] text-[10px]"
+                            title="Model for Code Generation (Analysis)"
+                        >
+                            <option value="" disabled>Analyst</option>
+                            {models.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                        <select
+                            value={selectedChatModel}
+                            onChange={(e) => setSelectedChatModel(e.target.value)}
+                            className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-slate-300 outline-none focus:border-primary max-w-[150px] text-[10px]"
+                            title="Model for Chat/Summarization"
+                        >
+                            <option value="" disabled>Chat</option>
+                            {models.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                    </div>
                 )}
             </div>
 
@@ -263,24 +279,22 @@ Currency: ${currency}`;
                                 'bg-primary/20 text-primary'}`}>
                             {msg.role === 'user' ? <User size={14} /> : msg.isSystem ? <Database size={14} /> : <Bot size={14} />}
                         </div>
-                        <div className={`p-3 rounded-2xl max-w-[85%] text-sm ${msg.isError ? 'bg-red-500/10 text-red-200 border border-red-500/20' :
-                            msg.role === 'user' ? 'bg-indigo-600 text-white' :
-                                msg.isSystem ? 'bg-slate-800/50 text-slate-400 italic' :
-                                    'bg-slate-800 text-slate-200'
+                        <div className={`p-3 rounded-2xl ${msg.role === 'user' ? 'max-w-[85%] bg-indigo-600 text-white' : 'max-w-[95%] bg-slate-800 text-slate-200'} text-sm ${msg.isError ? 'bg-red-500/10 text-red-200 border border-red-500/20' :
+                            msg.isSystem ? 'bg-slate-800/50 text-slate-400 italic' : ''
                             }`}>
                             {msg.content}
 
                             {msg.fig && (
-                                <div className="mt-4 bg-white rounded-lg p-2 overflow-hidden">
+                                <div className="mt-4 bg-black/20 rounded-lg p-2 overflow-hidden border border-white/5 w-full">
                                     <PlotlyChart data={msg.fig} />
                                 </div>
                             )}
 
                             <div className="flex items-center justify-between mt-2">
                                 {msg.code && (
-                                    <details className="opacity-50 text-[10px]">
+                                    <details className="opacity-50 text-[10px] w-full">
                                         <summary className="cursor-pointer hover:underline">View Logic</summary>
-                                        <pre className="mt-1 p-2 bg-black/40 rounded overflow-x-auto">
+                                        <pre className="mt-1 p-2 bg-black/40 rounded overflow-x-auto w-full">
                                             {msg.code}
                                         </pre>
                                     </details>
@@ -340,16 +354,69 @@ function PlotlyChart({ data }) {
     const containerRef = useRef(null);
     useEffect(() => {
         if (containerRef.current && data) {
-            Plotly.newPlot(containerRef.current, data.data, {
+            const layout = {
                 ...data.layout,
                 autosize: true,
-                margin: { l: 40, r: 20, t: 40, b: 40 },
+                margin: { l: 50, r: 20, t: 40, b: 50 }, // Increased margins
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 plot_bgcolor: 'rgba(0,0,0,0)',
-                font: { color: '#333' }
-            }, { responsive: true, displayModeBar: true });
+                font: {
+                    color: '#94a3b8', // Slate 400
+                    family: 'Outfit, sans-serif'
+                },
+                xaxis: {
+                    ...data.layout?.xaxis,
+                    gridcolor: 'rgba(255,255,255,0.1)',
+                    zerolinecolor: 'rgba(255,255,255,0.1)',
+                    tickfont: { color: '#94a3b8' },
+                    automargin: true
+                },
+                yaxis: {
+                    ...data.layout?.yaxis,
+                    gridcolor: 'rgba(255,255,255,0.1)',
+                    zerolinecolor: 'rgba(255,255,255,0.1)',
+                    tickfont: { color: '#94a3b8' },
+                    automargin: true
+                },
+                legend: {
+                    orientation: 'h',
+                    y: -0.2, // Move legend below
+                    font: { color: '#94a3b8' }
+                }
+            };
+
+            Plotly.react(containerRef.current, data.data, layout, {
+                responsive: true,
+                displayModeBar: false // Clean look
+            });
         }
     }, [data]);
 
-    return <div ref={containerRef} className="w-full h-64" />;
+    // Cleanup and Resize Handling
+    useEffect(() => {
+        if (!containerRef.current) return;
+
+        // 1. Observer for dynamic resizes (e.g. expanding view logic)
+        const resizeObserver = new ResizeObserver(() => {
+            if (containerRef.current) {
+                Plotly.Plots.resize(containerRef.current);
+            }
+        });
+        resizeObserver.observe(containerRef.current);
+
+        // 2. Force resize after animation delay (fixes initial narrow render)
+        // Framer motion default spring is around 300-500ms
+        const timer = setTimeout(() => {
+            if (containerRef.current) {
+                Plotly.Plots.resize(containerRef.current);
+            }
+        }, 400);
+
+        return () => {
+            resizeObserver.disconnect();
+            clearTimeout(timer);
+        };
+    }, []);
+
+    return <div ref={containerRef} className="w-full h-72" />; // Slightly taller
 }

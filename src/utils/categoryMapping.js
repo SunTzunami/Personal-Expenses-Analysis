@@ -27,10 +27,22 @@ export const CATEGORY_MAPPING = {
     'grocery': 'Food', 'Grocery': 'Food',
     'snacks': 'Food', 'Snacks': 'Food',
     'dining': 'Food', 'Dining': 'Food',
+    'cafe': 'Food', 'Coffee': 'Food',
+    'Cafe': 'Food', 'café': 'Food', 'Café': 'Food',
+    'bento': 'Food', 'Bento': 'Food',
+    'beverage': 'Food', 'Beverage': 'Food',
+    'eating from combini': 'Food', 'Eating from combini': 'Food',
+    'eating out': 'Food', 'Eating out': 'Food',
+    'eating with friend': 'Food', 'Eating with friend': 'Food',
 
     // Housing
     'housing': 'Housing and Utilities', 'Housing': 'Housing and Utilities',
-    'utility': 'Housing and Utilities', 'Utility': 'Housing and Utilities',
+    'internet bill': 'Housing and Utilities', 'Internet bill': 'Housing and Utilities',
+    'electricity bill': 'Housing and Utilities', 'Electricity bill': 'Housing and Utilities',
+    'gas bill': 'Housing and Utilities', 'Gas bill': 'Housing and Utilities',
+    'water & sewage bill': 'Housing and Utilities', 'Water & sewage bill': 'Housing and Utilities',
+    'phone bill': 'Housing and Utilities', 'Phone bill': 'Housing and Utilities',
+    'water': 'Housing and Utilities', 'Water': 'Housing and Utilities',
 
     // Household & Clothing
     'clothing': 'Household and Clothing', 'Clothing': 'Household and Clothing',
@@ -47,6 +59,9 @@ export const CATEGORY_MAPPING = {
     'sports rental': 'Fitness', 'Sports rental': 'Fitness',
     'gym': 'Fitness', 'Gym': 'Fitness',
     'sports equipment': 'Fitness', 'Sports equipment': 'Fitness',
+    'basketball game': 'Fitness', 'Basketball game': 'Fitness',
+    'footbal game': 'Fitness', 'Footbal game': 'Fitness',
+    'futsal game': 'Fitness', 'Futsal game': 'Fitness',
 
     // Transportation
     'commute': 'Transportation', 'Commute': 'Transportation',
@@ -69,13 +84,20 @@ export const CATEGORY_MAPPING = {
     'medicines': 'Miscellaneous', 'Medicines': 'Miscellaneous',
     'personal care': 'Miscellaneous', 'Personal care': 'Miscellaneous',
     'misc': 'Miscellaneous', 'Misc': 'Miscellaneous',
-    'entertainment': 'Miscellaneous', 'Entertainment': 'Miscellaneous',
     'books': 'Miscellaneous', 'Books': 'Miscellaneous',
     'help': 'Miscellaneous', 'Help': 'Miscellaneous',
+
+    // Entertainment
+    'entertainment': 'Entertainment', 'Entertainment': 'Entertainment',
+    'nomikai': 'Entertainment', 'Nomikai': 'Entertainment',
+    'Activities': 'Entertainment', 'activities': 'Entertainment',
+    'Arcades & Karaoke': 'Entertainment', 'arcades & karaoke': 'Entertainment',
+    'Events & Venues': 'Entertainment', 'events & venues': 'Entertainment',
     'charity': 'Miscellaneous', 'Charity': 'Miscellaneous',
     'donation': 'Miscellaneous', 'Donation': 'Miscellaneous',
     'entrance fees': 'Miscellaneous', 'Entrance fees': 'Miscellaneous',
     'park entrance fees': 'Miscellaneous', 'Park entrance fees': 'Miscellaneous',
+    'healthcare': 'Miscellaneous', 'Healthcare': 'Miscellaneous',
 
     // Education
     'education': 'Education', 'Education': 'Education',

@@ -27,10 +27,49 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Category Mapping (Mirrors src/utils/categoryMapping.js)
+CATEGORY_MAPPING = {
+    # Food
+    'grocery': 'Food', 'snacks': 'Food', 'dining': 'Food', 'cafe': 'Food',
+    'coffee': 'Food',
+
+    # Housing
+    'housing': 'Housing and Utilities', 'utility': 'Housing and Utilities',
+
+    # Household & Clothing
+    'clothing': 'Household and Clothing', 'household': 'Household and Clothing',
+    'furniture': 'Electronics and Furniture', 'electronics': 'Electronics and Furniture',
+
+    # Fitness
+    'supplements': 'Fitness', 'shoes': 'Fitness', 'sports event': 'Fitness',
+    'sports watch': 'Fitness', 'sports clothing': 'Fitness', 'sports rental': 'Fitness',
+    'gym': 'Fitness', 'sports equipment': 'Fitness',
+
+    # Transportation
+    'commute': 'Transportation', 'ride share': 'Transportation', 'tokyo metro': 'Transportation',
+    'flight tickets': 'Transportation', 'cable car': 'Transportation', 'bus': 'Transportation',
+    'shinkansen': 'Transportation', 'car rental': 'Transportation',
+    'taxi': 'Transportation', 'stay': 'Transportation',
+
+    # Gifts & Treats
+    'souvenirs': 'Souvenirs/Gifts/Treats', 'treat': 'Souvenirs/Gifts/Treats',
+    'gift': 'Souvenirs/Gifts/Treats',
+
+    # Misc
+    'medicines': 'Miscellaneous', 'personal care': 'Miscellaneous', 'misc': 'Miscellaneous',
+    'entertainment': 'Miscellaneous', 'books': 'Miscellaneous', 'help': 'Miscellaneous',
+    'charity': 'Miscellaneous', 'donation': 'Miscellaneous', 'entrance fees': 'Miscellaneous',
+    'park entrance fees': 'Miscellaneous', 'healthcare': 'Miscellaneous',
+
+    # Education
+    'education': 'Education',
+}
+
 class AnalyzeRequest(BaseModel):
     data: List[dict]
     prompt: Optional[str] = ""
     model: str
+    chat_model: Optional[str] = None
     metadata: str
     currency: str
 
@@ -65,6 +104,23 @@ async def analyze(request: AnalyzeRequest):
         df = pd.DataFrame(request.data)
         if 'Date' in df.columns:
             df['Date'] = pd.to_datetime(df['Date'])
+
+        # 1b. Enhance DataFrame for Finetuned Model
+        # Ensure 'category' is lowercase for matching
+        if 'category' in df.columns:
+            df['category'] = df['category'].astype(str).str.lower().str.strip()
+            
+            # Create 'major category' column based on mapping
+            # Default to 'Miscellaneous' if not found
+            df['major category'] = df['category'].map(lambda x: CATEGORY_MAPPING.get(x, 'Miscellaneous'))
+            
+            # Handle empty/NaN categories
+            df.loc[df['category'] == 'nan', 'major category'] = ''
+            df.loc[df['category'] == '', 'major category'] = ''
+        else:
+            # Create empty columns if missing to prevent Model crash
+            df['category'] = ''
+            df['major category'] = ''
 
         # 2. Get Code from LLM
         analysis_template = load_prompt_template("analysis_prompt.txt")
@@ -139,7 +195,11 @@ async def analyze(request: AnalyzeRequest):
                 currency=request.currency
             )
 
-            summary_response = ollama.chat(model=request.model, messages=[
+            # Use dedicated chat model if provided, else fallback to code model
+            target_model = request.chat_model if request.chat_model else request.model
+            
+            logger.info(f"Summarizing with {target_model}...")
+            summary_response = ollama.chat(model=target_model, messages=[
                 {'role': 'system', 'content': summary_prompt},
                 {'role': 'user', 'content': f"Question: {request.prompt}\nResult: {result}"}
             ])

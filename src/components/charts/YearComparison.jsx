@@ -1,6 +1,6 @@
 import React from 'react';
 import Plot from 'react-plotly.js';
-import { getDayOfYear } from 'date-fns';
+import { getDayOfYear, format } from 'date-fns';
 
 const YearComparison = ({ data, year1, year2 }) => {
     // Filter and sort data for each year
@@ -12,18 +12,30 @@ const YearComparison = ({ data, year1, year2 }) => {
         .filter(d => d.Date.getFullYear() === year2)
         .sort((a, b) => a.Date - b.Date);
 
-    // Calculate cumulative expenses
+    // Calculate cumulative expenses and store formatted dates
     let cumulative1 = 0;
     const year1Cumulative = year1Data.map(d => {
         cumulative1 += d.Expense;
-        return { dayOfYear: getDayOfYear(d.Date), cumulative: cumulative1 };
+        return {
+            dayOfYear: getDayOfYear(d.Date),
+            cumulative: cumulative1,
+            dateStr: format(d.Date, 'MMM d')
+        };
     });
 
     let cumulative2 = 0;
     const year2Cumulative = year2Data.map(d => {
         cumulative2 += d.Expense;
-        return { dayOfYear: getDayOfYear(d.Date), cumulative: cumulative2 };
+        return {
+            dayOfYear: getDayOfYear(d.Date),
+            cumulative: cumulative2,
+            dateStr: format(d.Date, 'MMM d')
+        };
     });
+
+    // Month tick values (approximate for non-leap year)
+    const monthTicks = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
+    const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
     return (
         <div className="w-full h-full min-h-[400px]">
@@ -32,18 +44,22 @@ const YearComparison = ({ data, year1, year2 }) => {
                     {
                         x: year1Cumulative.map(d => d.dayOfYear),
                         y: year1Cumulative.map(d => d.cumulative),
+                        text: year1Cumulative.map(d => d.dateStr),
                         type: 'scatter',
                         mode: 'lines',
                         name: `${year1}`,
                         line: { color: '#76a5af', width: 3 },
+                        hovertemplate: '%{text}<br>%{name}: ¥%{y:.2f}M<extra></extra>',
                     },
                     {
                         x: year2Cumulative.map(d => d.dayOfYear),
                         y: year2Cumulative.map(d => d.cumulative),
+                        text: year2Cumulative.map(d => d.dateStr),
                         type: 'scatter',
                         mode: 'lines',
                         name: `${year2}`,
                         line: { color: '#f5a399', width: 3 },
+                        hovertemplate: '%{text}<br>%{name}: ¥%{y:.2f}M<extra></extra>',
                     }
                 ]}
                 layout={{
@@ -54,10 +70,13 @@ const YearComparison = ({ data, year1, year2 }) => {
                     paper_bgcolor: 'rgba(0,0,0,0)',
                     plot_bgcolor: 'rgba(0,0,0,0)',
                     xaxis: {
-                        title: 'Day of Year',
+                        title: 'Date',
                         showgrid: false,
                         color: '#94a3b8',
-                        tickfont: { family: 'Outfit' }
+                        tickfont: { family: 'Outfit' },
+                        tickvals: monthTicks,
+                        ticktext: monthLabels,
+                        range: [1, 366]
                     },
                     yaxis: {
                         showgrid: true,

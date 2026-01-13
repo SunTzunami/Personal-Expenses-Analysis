@@ -23,7 +23,7 @@ export async function initPyodide() {
  * First attempts to use the FastAPI backend, falls back to Pyodide if unavailable.
  */
 export async function runPython(code, data, options = {}) {
-    const { prompt, metadata, currency, model } = options;
+    const { prompt, metadata, currency, model, chatModel } = options;
 
     // 1. Try FastAPI Backend
     try {
@@ -35,7 +35,8 @@ export async function runPython(code, data, options = {}) {
                 prompt,
                 metadata,
                 currency,
-                model
+                model,
+                chat_model: chatModel
             })
         });
 
@@ -67,6 +68,15 @@ import json
 df = pd.read_csv(io.StringIO(csv_content))
 if 'Date' in df.columns:
     df['Date'] = pd.to_datetime(df['Date'])
+
+# Standardize columns for Finetuned Model (major category, category)
+if 'NewCategory' in df.columns:
+    df['major category'] = df['NewCategory']
+if 'Category' in df.columns:
+    df['category'] = df['Category'].astype(str).str.lower().str.strip()
+else:
+    df['category'] = ''
+    df['major category'] = ''
 
 exec_scope = {"df": df, "pd": pd, "np": np}
 result = None

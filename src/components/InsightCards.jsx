@@ -120,7 +120,7 @@ const InsightCards = ({ data, currency = 'JPY' }) => {
                         <p className="text-3xl font-bold text-white tracking-tight">{topDay?.total ? formatCurrency(topDay.total) : '-'}</p>
                         <p className="text-xs text-slate-500 mt-2 flex items-center justify-between">
                             <span className="flex items-center gap-1">
-                                <Calendar size={12} /> {topDay?.date && format(new Date(topDay.date), 'MMMM dd, yyyy')}
+                                <Calendar size={12} /> {topDay?.date && format(new Date(topDay.date), 'EEEE, MMMM dd, yyyy')}
                             </span>
                             <button
                                 onClick={() => setShowSplurgeDetails(!showSplurgeDetails)}

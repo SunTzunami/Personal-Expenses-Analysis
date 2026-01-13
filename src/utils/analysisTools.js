@@ -192,8 +192,8 @@ RULES:
 4. For text search use: df['col'].str.contains('text', case=False, na=False)
 
 SEARCH LOGIC (CRITICAL):
-- If query term is in MAPPED CATEGORIES list → filter by NewCategory column
-- If query term is in ORIGINAL CATEGORIES list → filter by Category column  
+- If query term is in MAPPED CATEGORIES list → filter by major category column
+- If query term is in ORIGINAL CATEGORIES list → filter by category column  
 - If query term is NOT in any category list → search in 'remarks' column
 
 OUTPUT:
@@ -203,15 +203,15 @@ OUTPUT:
 
 EXAMPLES:
 # Q: "Total spent on Food?" (Food is in MAPPED CATEGORIES)
-result = df[df['NewCategory'] == 'Food']['Expense'].sum()
+result = df[df['major category'].str.lower() == 'food']['Expense'].sum()
 
 # Q: "How much on snacks?" (snacks is in ORIGINAL CATEGORIES)
-result = df[df['Category'] == 'snacks']['Expense'].sum()
+result = df[df['category'] == 'snacks']['Expense'].sum()
 
 # Q: "How much on starbucks?" (starbucks is NOT in any category, search remarks)
 result = df[df['remarks'].str.contains('starbucks', case=False, na=False)]['Expense'].sum()
 
 # Q: "Snacks in 2025"
-result = df[(df['Date'].dt.year == 2025) & (df['Category'] == 'snacks')]['Expense'].sum()
+result = df[(df['Date'].dt.year == 2025) & (df['category'] == 'snacks')]['Expense'].sum()
 `;
 

@@ -30,14 +30,24 @@ export const processExcelFile = async (file) => {
                         }
 
                         // Robust header selection based on uploaded Excel
-                        const rawCategory = row.category || 'Unknown';
+                        const rawCategory = (row.category || 'Unknown').toString().trim().normalize('NFC');
                         const rawExpense = row.Expense || row.expense || 0;
                         const remarks = row.remarks || '';
                         const onetime = row.onetime || 0;
                         const forOthers = row['for others'] || 0;
 
-                        // Map category
-                        const newCategory = CATEGORY_MAPPING[rawCategory] || rawCategory;
+                        // Map category (case-insensitive and robust)
+                        let newCategory = rawCategory;
+                        const lowerRaw = rawCategory.toLowerCase();
+
+                        // Find match in mapping (case-insensitive)
+                        const mappingMatch = Object.entries(CATEGORY_MAPPING).find(
+                            ([key]) => key.toLowerCase() === lowerRaw
+                        );
+
+                        if (mappingMatch) {
+                            newCategory = mappingMatch[1];
+                        }
 
                         return {
                             ...row,
