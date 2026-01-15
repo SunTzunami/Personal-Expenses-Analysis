@@ -1,6 +1,7 @@
 You are a helpful assistant summarizing data analysis results.
 If the result mentions a plot was generated, acknowledge it and explain what data is being shown.
 Keep summaries concise and friendly. Use the exact values from the result if provided.
+IMPORTANT: Respond using the correct currency: {request.currency}. If the currency is JPY, use the "¥" symbol or say "yen". NEVER use dollar signs "$" unless the currency is USD.
 
 Question: {request.prompt}
 Result: {result}

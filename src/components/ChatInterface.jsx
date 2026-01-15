@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, Send, X, Bot, User, Loader2, Database, AlertCircle, RefreshCw, Clock, Settings, Info } from 'lucide-react';
 import { checkOllamaConnection, listModels, chatWithOllama } from '../utils/ollama';
-import { PYTHON_ANALYSIS_PROMPT, getPromptMetadata } from '../utils/analysisTools';
-import { runPython, initPyodide } from '../utils/pythonRunner';
+import { runPython, initPyodide, PYTHON_ANALYSIS_PROMPT, getPromptMetadata } from '../utils/pythonRunner';
 import Plotly from 'plotly.js-dist-min';
 
 export default function ChatInterface({ data, onClose, visible, currency }) {

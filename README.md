@@ -102,26 +102,52 @@ You can now run both the frontend and backend with a single command:
 
 ---
 
-## Data Format Requirements
+## Data Format & Insights
 
-The application expects an **Excel file (.xlsx or .xls)**. 
+The application analyzes an **Excel file (.xlsx or .xls)** with the following structure and characteristics.
 
-### Required Columns
+### 📊 Data Insights (from latest EDA)
+- **Total Transactions**: 1,742 (valid expenses)
+- **Total Spent**: 6,663,760.00 (JPY/INR)
+- **Average Expense**: 3,825.35
+- **Median Expense**: 1,064.00
+- **Time Range**: October 2023 to January 2026
+
+### 📝 Required Columns
 | Column | Description | Example |
 | :--- | :--- | :--- |
-| **Date** | Date of the transaction | `2024-01-01` |
-| **Expense** | Amount spent (positive number) | `550` |
-| **remarks** | description of the spend | `Lunch at Shinjuku` |
-| **category** | Raw category tag | `dining` |
-| **onetime** | `1` if it's a rare/one-time purchase | `0` |
+| **Date** | ISO Date format | `2024-01-01` |
+| **Expense** | Numerical amount (no commas) | `550` |
+| **remarks** | Detailed description (used for AI search) | `Starbucks coffee` |
+| **category** | Raw category tag (e.g., `gym`, `cafe`) | `dining` |
+| **onetime** | `1` for rare/one-time purchases | `0` |
 | **for others**| `1` if spent on behalf of others | `0` |
-
-> [!TIP]
-> Use the **"Try with Demo Data"** button on the home screen to see the app in action!
 
 ---
 
-## Setting up Local LLM (via Ollama)
+## 🏗️ Category Mapping System
+
+The app automatically maps **specific categories** (from your Excel) into **broad groups** for higher-level analysis.
+
+### Broad Groups & Distribution
+| Group | Description | Color |
+| :--- | :--- | :--- |
+| **Food** | Groceries, snacks, eating out, cafe | #99b98b |
+| **Fitness** | Gym, supplements, sports gear/events | #d6a7c3 |
+| **Housing & Utilities** | Rent, internet, electricity, water bills | #e2c596 |
+| **Transportation** | Metro, shinkansen, flights, ride share | #cda180 |
+| **Entertainment** | Nomikai, arcade, karaoke, events | #909eb3 |
+| **Household & Clothing** | Clothes, household supplies, furniture | #e7d8c4 |
+| **Souvenirs/Gifts** | Souvenirs, treats, gifts | #b4aea8 |
+| **Miscellaneous** | Personal care, medicines, help, charity | #b3b3cc |
+| **Education** | Books, courses, tuition | #6fa8dc |
+
+> [!NOTE]
+> You can customize these mappings and colors in `src/utils/categoryMapping.js`.
+
+---
+
+## 🧠 Local AI Assistant (Ollama)
 
 To enable the "**Ask AI Assistant**" feature:
 

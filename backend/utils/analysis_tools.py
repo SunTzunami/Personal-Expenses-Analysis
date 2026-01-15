@@ -3,16 +3,20 @@ import plotly.express as px
 import numpy as np
 from scipy import stats
 
-def plot_time_series(df, category=None, major_category=None, year=None, months=None, title=None):
+def plot_time_series(df, category=None, major_category=None, year=None, start_year=None, end_year=None, months=None, title=None):
     """
     Plots a time series line chart for the specified criteria.
+    Supports single year or a range of years.
     """
     data = df.copy()
     if 'Date' in data.columns:
         data['Date'] = pd.to_datetime(data['Date'])
     
+    # Filter by year or year range
     if year:
         data = data[data['Date'].dt.year == int(year)]
+    elif start_year and end_year:
+        data = data[(data['Date'].dt.year >= int(start_year)) & (data['Date'].dt.year <= int(end_year))]
     
     # Robust filtering for category/major_category
     if category and major_category:
@@ -43,6 +47,7 @@ def plot_time_series(df, category=None, major_category=None, year=None, months=N
     
     msg = f"Time-series plot for {label} expenses"
     if year: msg += f" in {year}"
+    elif start_year and end_year: msg += f" from {start_year} to {end_year}"
     if months: msg += f" for the past {months} months"
     msg += " has been generated."
     

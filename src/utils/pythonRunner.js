@@ -1,4 +1,111 @@
 
+
+/**
+ * Get metadata for the LLM prompt.
+ * Includes column names, data types, unique categories, and category mapping.
+ */
+export function getPromptMetadata(data) {
+    if (!data || data.length === 0) return {
+        columns: [],
+        columnTypes: {},
+        uniqueCategories: [],
+        uniqueNewCategories: [],
+        categoryMapping: {}
+    };
+
+    const columns = Object.keys(data[0]);
+
+    const columnTypes = {};
+    columns.forEach(col => {
+        const sample = data.find(row => row[col] != null)?.[col];
+        if (sample instanceof Date || (typeof sample === 'string' && !isNaN(Date.parse(sample)) && sample.includes('-'))) {
+            columnTypes[col] = 'datetime';
+        } else if (typeof sample === 'number') {
+            columnTypes[col] = 'float';
+        } else if (typeof sample === 'boolean') {
+            columnTypes[col] = 'boolean';
+        } else {
+            columnTypes[col] = 'string';
+        }
+    });
+
+    const normalizeUnique = (arr) => {
+        const seen = new Set();
+        return arr.filter(v => {
+            if (!v) return false;
+            const lower = String(v).toLowerCase();
+            if (seen.has(lower)) return false;
+            seen.add(lower);
+            return true;
+        }).sort();
+    };
+
+    const uniqueCategories = normalizeUnique(data.map(d => d.Category || d.category));
+    const uniqueNewCategories = normalizeUnique(data.map(d => d.NewCategory || d['major category'] || d.major_category));
+
+    const categoryMapping = {};
+    const seenMapping = new Set();
+    data.forEach(row => {
+        const cat = row.Category || row.category;
+        const newCat = row.NewCategory || row['major category'] || row.major_category;
+        if (cat && newCat) {
+            const lowerOrig = String(cat).toLowerCase();
+            if (!seenMapping.has(lowerOrig)) {
+                categoryMapping[cat] = newCat;
+                seenMapping.add(lowerOrig);
+            }
+        }
+    });
+
+    return {
+        columns,
+        columnTypes,
+        uniqueCategories,
+        uniqueNewCategories,
+        categoryMapping
+    };
+}
+
+/**
+ * Enhanced System Prompt for Python Analysis - Optimized for small local LLMs (<4B params).
+ */
+export const PYTHON_ANALYSIS_PROMPT = `You are analyzing expense data in a pandas DataFrame called \`df\`.
+
+{{metadata}}
+Current Date: {{current_date}}
+
+USER QUESTION: "{{prompt}}"
+
+RULES:
+1. DO NOT create df. It already exists with all the data.
+2. DO NOT import pandas, numpy, or io. They are pre-imported as pd, np.
+3. Use parentheses for filtering: df[(df['col'] == val) & (df['col2'] == val2)]
+4. For text search use: df['col'].str.contains('text', case=False, na=False)
+
+SEARCH LOGIC (CRITICAL):
+- If query term is in MAPPED CATEGORIES list → filter by major category column
+- If query term is in ORIGINAL CATEGORIES list → filter by category column  
+- If query term is NOT in any category list → search in 'remarks' column
+
+OUTPUT:
+- Store text/number answer in \`result\` variable
+- Store Plotly figure in \`fig\` variable (only if visualization adds value)
+- Output ONLY Python code. No explanations.
+
+EXAMPLES:
+# Q: "Total spent on Food?" (Food is in MAPPED CATEGORIES)
+result = df[df['major category'].str.lower() == 'food']['Expense'].sum()
+
+# Q: "How much on snacks?" (snacks is in ORIGINAL CATEGORIES)
+result = df[df['category'] == 'snacks']['Expense'].sum()
+
+# Q: "How much on starbucks?" (starbucks is NOT in any category, search remarks)
+result = df[df['remarks'].str.contains('starbucks', case=False, na=False)]['Expense'].sum()
+
+# Q: "Snacks in 2025"
+result = df[(df['Date'].dt.year == 2025) & (df['category'] == 'snacks')]['Expense'].sum()
+`;
+
 let pyodide = null;
 
 /**
@@ -79,22 +186,28 @@ else:
     if 'category' not in df.columns: df['category'] = ''
     if 'major category' not in df.columns: df['major category'] = ''
 
-# Analysis Tools Library
-def plot_time_series(df, category=None, major_category=None, year=None, months=None, title=None):
+// Analysis Tools Library
+def plot_time_series(df, category=None, major_category=None, year=None, start_year=None, end_year=None, months=None, title=None):
     data = df.copy()
-    if year: data = data[pd.to_datetime(data['Date']).dt.year == int(year)]
+    if year:
+        data = data[pd.to_datetime(data['Date']).dt.year == int(year)]
+    elif start_year and end_year:
+        data = data[(pd.to_datetime(data['Date']).dt.year >= int(start_year)) & (pd.to_datetime(data['Date']).dt.year <= int(end_year))]
+    
     if category and major_category:
         cat_f = data[data['category'].str.lower() == category.lower()]
         data = cat_f if not cat_f.empty else data[data['major category'].str.lower() == major_category.lower()]
     elif category: data = data[data['category'].str.lower() == category.lower()]
     elif major_category: data = data[data['major category'].str.lower() == major_category.lower()]
+    
     if months:
         cutoff = pd.Timestamp.now() - pd.DateOffset(months=int(months))
         data = data[data['Date'] >= cutoff]
+    
     if data.empty: return None, "No data found for this period."
     data = data.sort_values('Date')
     fig = px.line(data, x='Date', y='Expense', title=title or f"Spending Over Time")
-    return fig, "Plot generated"
+    return fig, f"Plot generated for {category or major_category or 'Total'}"
 
 def plot_pie_chart(df, year=None, major_category=None, title=None):
     data = df.copy()

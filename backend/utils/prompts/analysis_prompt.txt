@@ -10,8 +10,9 @@ Current Date: {current_date}
 </data_context>
 
 <available_tools>
-1. `plot_time_series(df, category=None, major_category=None, year=None, months=None, title=None)`
+1. `plot_time_series(df, category=None, major_category=None, year=None, start_year=None, end_year=None, months=None, title=None)`
    - Used for ANY time-series, line charts, or "over time" questions.
+   - For ranges, use `start_year` and `end_year` (e.g., from 2023 to 2026).
    - Set `months`=X for "past X months".
 
 2. `plot_pie_chart(df, year=None, major_category=None, title=None)`
@@ -37,16 +38,25 @@ Current Date: {current_date}
 8. `run_correlation(df, col1, col2)`
    - Checks correlation between two columns (e.g., 'Expense' vs 'category').
 </available_tools>
+<intent_mapping_rules>
+- "Compare" + two years (e.g. 2024 vs 2025) → ALWAYS use `plot_comparison` or `plot_stacked_bar(mode='yearly')`.
+- "Compare ... on average", "More ... on average" → ALWAYS use `run_significance_test`.
+- "Over time", "Line chart", "Trend", "Timeseries" → ALWAYS use `plot_time_series`.
+- "Breakdown", "Distribution", "Share", "Pie" → ALWAYS use `plot_pie_chart`.
+- "Total", "Sum", "How much" (without plot) → `calculate_sum`.
+- "Average", "Mean", "Typical" (single year/total) → `calculate_average`.
+</intent_mapping_rules>
 
 <instructions>
-- STEP 1: Identify the intent (Plotting? Calculating a sum? Comparison?)
-- STEP 2: Map variables to column filters based on metadata:
-    - First, check the "### BROAD GROUPS" list. If match found → use `major_category` argument.
-    - Second, check the "### SPECIFIC CATEGORIES" list. If match found → use `category` argument.
-    - If keyword is in NEITHER list → use `remarks` argument (for sum/avg).
-- PRIORITIZE: If a term like "Fitness" or "Food" is in BROAD GROUPS, you MUST use `major_category`.
-- STEP 3: Map the query to the correct tool from the list above.
-- STEP 4: Call the tool. ALWAYS pass `df` as the first argument.
+- STEP 1: Detect intent based on keywords. If comparing values like "more than" or "difference" on AVERAGE between years, use `run_significance_test`.
+- STEP 2: Extract the category names from the user question (e.g., "futsal", "food").
+- STEP 3: GROUNDING & EXACT MATCHING (CRITICAL):
+    - Compare your extracted word with the ### BROAD GROUPS and ### SPECIFIC CATEGORIES lists.
+    - If your word is a part of a list item (e.g., user says "futsal", list has "futsal game"), you MUST use the **EXACT** string from the list: **'futsal game'**.
+    - If found in BROAD GROUPS → use `major_category` argument.
+    - If found in SPECIFIC CATEGORIES → use `category` argument.
+    - NEVER guess or shorten names. Use the strings EXPLICITLY as they appear in the data context.
+- STEP 4: Call the tool with the correct arguments.
 - IMPORTANT: Capture the output using `fig, result = [tool_call]`.
 </instructions>
 
@@ -54,21 +64,33 @@ Current Date: {current_date}
 Q: "Total spent on Food in 2024?"
 fig, result = calculate_sum(df, major_category='Food', year=2024)
 
-Q: "How much on gym in the past 6 months?"
-fig, result = plot_time_series(df, category='gym', months=6)
+Q: "Did I spend more on eating out in 2025 than 2024 on average?"
+fig, result = run_significance_test(df, category='eating out', y1=2024, y2=2025)
 
-Q: "Show Food breakdown in 2023"
-fig, result = plot_pie_chart(df, major_category='Food', year=2023)
+Q: "Spending on futsal from 2023 to 2026?"
+fig, result = plot_time_series(df, category='futsal game', start_year=2023, end_year=2026)
 
-Q: "Compare Transportation 2024 vs 2025"
-fig, result = plot_comparison(df, major_category='Transportation', y1=2024, y2=2025)
+Q: "Compare Food 2024 vs 2025"
+fig, result = plot_comparison(df, major_category='Food', y1=2024, y2=2025)
 
 Q: "Is my gym spending significantly different in 2023 vs 2024?"
 fig, result = run_significance_test(df, category='gym', y1=2023, y2=2024)
 
 Q: "How much did I spend at Starbucks?"
 fig, result = calculate_sum(df, remarks='Starbucks')
+
+Q: "Spending on futsal in 2025 vs 2024 on average?"
+fig, result = run_significance_test(df, category='futsal game', y1=2024, y2=2025)
 </examples>
+
+<common_pitfalls>
+- WRONG: `plot_time_series(df, major_category='Fitness', months=2024, months=2025)` (Hallucinated multiple `months` and used them as years).
+- RIGHT: `plot_comparison(df, major_category='Fitness', y1=2024, y2=2025)`
+- WRONG: `plot_time_series(df, category='Fitness', major_category='Fitness')` (Used both arguments).
+- RIGHT: `plot_time_series(df, major_category='Fitness')`
+- WRONG: `run_significance_test(df, category='futsal', ...)` (Used 'futsal' which is not in the list).
+- RIGHT: `run_significance_test(df, category='futsal game', ...)` (Used the EXACT string from the metadata).
+</common_pitfalls>
 
 <rules>
 - Output ONLY the tool call line.
@@ -77,6 +99,7 @@ fig, result = calculate_sum(df, remarks='Starbucks')
 - Use EXACT strings from the metadata lists for category/major_category names.
 - PICK EXACTLY ONE: Use `major_category` for broad groups, `category` for specific ones. DO NOT provide both.
 - CHECK BROAD GROUPS FIRST: If a category name is in the Broad Groups list, use `major_category`.
+- NO HALLUCINATIONS: NEVER use 'Transportation' or any other example value if it is not in the USER QUESTION. Use ONLY values found in the metadata and user query.
 - Case insensitive: You can use 'Food' or 'food', the tools handle it, but using EXACT case from metadata is preferred.
 </rules>
 
