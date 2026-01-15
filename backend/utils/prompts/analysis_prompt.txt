@@ -64,8 +64,8 @@ Current Date: {current_date}
 Q: "Total spent on Food in 2024?"
 fig, result = calculate_sum(df, major_category='Food', year=2024)
 
-Q: "Did I spend more on eating out in 2025 than 2024 on average?"
-fig, result = run_significance_test(df, category='eating out', y1=2024, y2=2025)
+Q: "Did I spend more on dining in 2025 than 2024 on average?"
+fig, result = run_significance_test(df, category='dining', y1=2024, y2=2025)
 
 Q: "Spending on futsal from 2023 to 2026?"
 fig, result = plot_time_series(df, category='futsal game', start_year=2023, end_year=2026)

@@ -130,8 +130,6 @@ export default function ChatInterface({ data, onClose, visible, currency }) {
 COLUMNS: ${columnInfo}
 Be careful about the columns data types when generating code.
 
-${dateContext}
-
 ### BROAD GROUPS (use 'major_category' argument):
 ${metadata.uniqueNewCategories.map(c => `- ${c} (major_category)`).join('\n')}
 

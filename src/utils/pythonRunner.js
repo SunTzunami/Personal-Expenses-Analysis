@@ -72,7 +72,7 @@ export function getPromptMetadata(data) {
 export const PYTHON_ANALYSIS_PROMPT = `You are analyzing expense data in a pandas DataFrame called \`df\`.
 
 {{metadata}}
-Current Date: {{current_date}}
+CURRENT DATE: {{current_date}} (remember this in case user asks questions like "this month", "last month", "past 6 months", etc.)
 
 USER QUESTION: "{{prompt}}"
 

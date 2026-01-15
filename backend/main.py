@@ -32,7 +32,7 @@ CATEGORY_MAPPING = {
     # Food
     'grocery': 'Food', 'snacks': 'Food', 'cafe': 'Food',
     'coffee': 'Food', 'café': 'Food', 'bento': 'Food', 'beverage': 'Food',
-    'eating from combini': 'Food', 'eating out': 'Food', 'eating with friend': 'Food',
+    'combini meal': 'Food', 'dining': 'Food', 'eating with friend': 'Food',
 
     # Housing
     'housing': 'Housing and Utilities', 'utility': 'Housing and Utilities',
@@ -149,22 +149,59 @@ async def analyze(request: AnalyzeRequest):
         logger.info(system_prompt)
         logger.info("*" * 50)
 
-        logger.info(f"Querying LLM ({request.model}) for tool call with options: {request.options}")
-        response = ollama.chat(model=request.model, messages=[
-            {'role': 'system', 'content': system_prompt},
-            {'role': 'user', 'content': request.prompt}
-        ], options=request.options)
+        # logger.info("model name = ")
+        # logger.info(request.model)
 
-        llm_content = response['message']['content'].strip()
-        
-        # Extract code from markdown blocks if present
-        code = llm_content
-        if "```python" in code:
-            code = code.split("```python")[1].split("```")[0].strip()
-        elif "```" in code:
-            code = code.split("```")[1].split("```")[0].strip()
+        if request.model == 'functiongemma:latest':
+            from utils.tool_definitions import TOOLS_SCHEMA
+            logger.info(f"Querying FunctionGemma with tools...")
+            
+            response = ollama.chat(model=request.model, messages=[
+                {'role': 'system', 'content': "You are a helpful assistant that analyzes expense data. Use the available tools to answer the user's question."},
+                {'role': 'user', 'content': request.prompt}
+            ], tools=TOOLS_SCHEMA, options=request.options)
+            
+            code = ""
+            if response['message'].get('tool_calls'):
+                for tool in response['message']['tool_calls']:
+                    fname = tool['function']['name']
+                    args = tool['function']['arguments']
+                    
+                    # Convert args dictionary to string representation for Python code
+                    arg_strs = []
+                    for k, v in args.items():
+                        if isinstance(v, str):
+                            arg_strs.append(f"{k}='{v}'")
+                        else:
+                            arg_strs.append(f"{k}={v}")
+                    
+                    code = f"fig, result = {fname}(df, {', '.join(arg_strs)})"
+                    break # For now, just handle the first tool call
+            else:
+                # Fallback if no tool called (FunctionGemma might still reply with text)
+                logger.info("FunctionGemma did not call any tools.")
+                return AnalyzeResponse(result=response['message']['content'])
+                
+            logger.info(f"FunctionGemma generated code: {code}")
 
-        logger.info(f"LLM generated code:\n{code}")
+        else:
+            # Standard Code Generation Logic for other models
+            logger.info(f"Querying LLM ({request.model}) for tool call with options: {request.options}")
+            response = ollama.chat(model=request.model, messages=[
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': request.prompt}
+            ], options=request.options)
+
+            llm_content = response['message']['content'].strip()
+            
+            # Extract code from markdown blocks if present
+            code = llm_content
+            if "```python" in code:
+                code = code.split("```python")[1].split("```")[0].strip()
+            elif "```" in code:
+                code = code.split("```")[1].split("```")[0].strip()
+
+            logger.info(f"LLM generated code:\n{code}")
 
         # 3. Execute code natively
         from utils.analysis_tools import (
