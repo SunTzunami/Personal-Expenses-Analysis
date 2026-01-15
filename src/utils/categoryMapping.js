@@ -32,7 +32,6 @@ export const CATEGORY_MAPPING = {
     'beverage': 'Food', 'Beverage': 'Food',
     'combini meal': 'Food', 'Combini meal': 'Food',
     'dining': 'Food', 'Dining': 'Food',
-    'eating out': 'Food', 'Eating out': 'Food',
     'eating with friend': 'Food', 'Eating with friend': 'Food',
 
     // Housing

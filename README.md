@@ -132,7 +132,7 @@ The app automatically maps **specific categories** (from your Excel) into **broa
 ### Broad Groups & Distribution
 | Group | Description | Color |
 | :--- | :--- | :--- |
-| **Food** | Groceries, snacks, eating out, cafe | #99b98b |
+| **Food** | Groceries, snacks, dining, cafe, combini meal | #99b98b |
 | **Fitness** | Gym, supplements, sports gear/events | #d6a7c3 |
 | **Housing & Utilities** | Rent, internet, electricity, water bills | #e2c596 |
 | **Transportation** | Metro, shinkansen, flights, ride share | #cda180 |
