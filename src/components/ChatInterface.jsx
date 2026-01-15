@@ -24,14 +24,26 @@ export default function ChatInterface({ data, onClose, visible, currency }) {
     const [topK, setTopK] = useState(10);
 
     const messagesEndRef = useRef(null);
+    const scrollContainerRef = useRef(null);
 
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+        } else {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
     };
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages]);
+        // Multiple backups for async content like plots
+        const t1 = setTimeout(scrollToBottom, 300);
+        const t2 = setTimeout(scrollToBottom, 1000);
+        return () => {
+            clearTimeout(t1);
+            clearTimeout(t2);
+        };
+    }, [messages, isLoading]);
 
     useEffect(() => {
         if (visible) {
@@ -114,17 +126,19 @@ export default function ChatInterface({ data, onClose, visible, currency }) {
                 .map(([orig, mapped]) => `${orig} → ${mapped}`)
                 .join(', ');
 
+
             const metadataStr = `
 COLUMNS: ${columnInfo}
 Be careful about the columns data types when generating code.
 
 ${dateContext}
 
-SPECIFIC CATEGORIES (search in category column): ${metadata.uniqueCategories.join(', ')}
-BROAD GROUPS (search in major category column): ${metadata.uniqueNewCategories.join(', ')}
+### BROAD GROUPS (use 'major_category' argument):
+${metadata.uniqueNewCategories.map(c => `- ${c} (major_category)`).join('\n')}
 
-MAPPINGS (for context): ${mappingStr}
-            `;
+### SPECIFIC CATEGORIES (use 'category' argument):
+${metadata.uniqueCategories.map(c => `- ${c} (category)`).join('\n')}
+`;
 
             // 2. Execute Code
             const analysisResult = await runPython(null, data, {
@@ -157,7 +171,8 @@ MAPPINGS (for context): ${mappingStr}
                     userMessage
                 ], false, { temperature, top_p: topP, top_k: topK });
 
-                code = response.content.trim();
+                const rawContent = response?.content || "";
+                code = rawContent.trim();
                 const pythonMatch = code.match(/```python\s*([\s\S]*?)```/);
                 const genericMatch = code.match(/```\s*([\s\S]*?)```/);
                 code = pythonMatch ? pythonMatch[1].trim() : (genericMatch ? genericMatch[1].trim() : code.replace(/```python/g, '').replace(/```/g, '').trim());
@@ -329,7 +344,7 @@ Currency: ${currency}`;
                             value={selectedCodeModel}
                             onChange={(e) => setSelectedCodeModel(e.target.value)}
                             className="bg-slate-900 border border-white/10 rounded px-2 py-1 text-slate-300 outline-none focus:border-primary max-w-[150px] text-[10px]"
-                            title="Model for Code Generation (Analysis)"
+                            title="Model for Tool Call (Analysis)"
                         >
                             <option value="" disabled>Analyst</option>
                             {models.map(m => <option key={m} value={m}>{m}</option>)}
@@ -348,7 +363,10 @@ Currency: ${currency}`;
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+            <div
+                ref={scrollContainerRef}
+                className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar"
+            >
                 {!isConnected && !isLoading && (
                     <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-2 text-center p-4">
                         <AlertCircle size={32} className="text-red-400 mb-2" />

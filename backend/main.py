@@ -149,7 +149,7 @@ async def analyze(request: AnalyzeRequest):
         logger.info(system_prompt)
         logger.info("*" * 50)
 
-        logger.info(f"Querying LLM ({request.model}) for code generation with options: {request.options}")
+        logger.info(f"Querying LLM ({request.model}) for tool call with options: {request.options}")
         response = ollama.chat(model=request.model, messages=[
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': request.prompt}
@@ -167,11 +167,25 @@ async def analyze(request: AnalyzeRequest):
         logger.info(f"LLM generated code:\n{code}")
 
         # 3. Execute code natively
+        from utils.analysis_tools import (
+            plot_time_series, plot_pie_chart, plot_comparison, 
+            plot_stacked_bar, calculate_sum, calculate_average, 
+            run_significance_test, run_correlation
+        )
+        
         exec_scope = {
             "df": df,
             "pd": pd,
             "np": np,
             "px": px,
+            "plot_time_series": plot_time_series,
+            "plot_pie_chart": plot_pie_chart,
+            "plot_comparison": plot_comparison,
+            "plot_stacked_bar": plot_stacked_bar,
+            "calculate_sum": calculate_sum,
+            "calculate_average": calculate_average,
+            "run_significance_test": run_significance_test,
+            "run_correlation": run_correlation,
             "result": None,
             "fig": None
         }
@@ -199,13 +213,24 @@ async def analyze(request: AnalyzeRequest):
                 fig_json = str(fig_obj)
 
         # 4. Summarize result if needed
+        # If it's a plot, the tool's 'msg' is usually enough. 
+        # For simple numeric/text results, we can often just return them.
         final_result = str(result) if result is not None else None
-        if result is not None and len(str(result)) < 500:
+        
+        # Only request LLM summary if:
+        # 1. There is no figure (just data)
+        # 2. The user specifically asked a question that needs natural language phrasing
+        # 3. The tool result isn't already a nice sentence.
+        
+        should_summarize = fig_obj is None and result is not None and not str(result).startswith("Total") and not str(result).startswith("Average")
+
+        if should_summarize:
             logger.info("Requesting natural language summary from LLM...")
             
             summary_template = load_prompt_template("summary_prompt.txt")
             summary_prompt = summary_template.format(
-                result=result
+                result=result,
+                request=request
             )
 
             # Use dedicated chat model if provided, else fallback to code model
@@ -218,6 +243,9 @@ async def analyze(request: AnalyzeRequest):
             ], options=request.options)
             final_result = summary_response['message']['content'].strip()
             logger.info(f"Summary generated: {final_result}")
+        else:
+            logger.info("Skipping LLM summary, using tool result directly.")
+            final_result = str(result) if result is not None else "Analysis complete."
 
         logger.info("--- Analysis Complete ---")
 
