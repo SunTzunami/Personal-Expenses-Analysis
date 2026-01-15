@@ -18,6 +18,10 @@
     --glass-highlight: rgba(255, 255, 255, 0.05);
 }
 
+html {
+    background-color: var(--bg-gradient-start);
+}
+
 body {
     margin: 0;
     font-family: var(--font-sans);

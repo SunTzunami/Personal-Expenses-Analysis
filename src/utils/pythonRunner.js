@@ -22,8 +22,8 @@ export async function initPyodide() {
  * Run Python code against a dataset. 
  * First attempts to use the FastAPI backend, falls back to Pyodide if unavailable.
  */
-export async function runPython(code, data, options = {}) {
-    const { prompt, metadata, currency, model, chatModel } = options;
+export async function runPython(code, data, optionsArg = {}) {
+    const { prompt, metadata, currency, model, chatModel, options } = optionsArg;
 
     // 1. Try FastAPI Backend
     try {
@@ -36,7 +36,8 @@ export async function runPython(code, data, options = {}) {
                 metadata,
                 currency,
                 model,
-                chat_model: chatModel
+                chat_model: chatModel,
+                options
             })
         });
 
@@ -67,7 +68,7 @@ import json
 # Load data
 df = pd.read_csv(io.StringIO(csv_content))
 if 'Date' in df.columns:
-    df['Date'] = pd.to_datetime(df['Date'])
+    df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
 
 # Standardize columns for Finetuned Model (major category, category)
 if 'NewCategory' in df.columns:

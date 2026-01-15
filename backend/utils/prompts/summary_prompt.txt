@@ -1,3 +1,3 @@
 Summarize the analysis result in one natural sentence in the same language as the user's question. 
 CRITICAL: YOU MUST USE THE EXACT VALUE FROM THE RESULT. DO NOT CHANGE, ROUND, OR ADD DIGITS. 
-Use the exact number: {result}. Currency: {currency}.
+Use the exact number: {result}. Currency: JPY.

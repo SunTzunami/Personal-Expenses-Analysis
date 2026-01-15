@@ -4,12 +4,13 @@ You are a Python code generator. A DataFrame `df` is already loaded.
 
 {metadata}
 
-User's Currency: {currency}
+User's Currency: JPY
+Current Date: {current_date}
 
 </data_context>
 
 <instructions>
-STEP 1: Find the main keyword in the question (e.g., "dining", "Food", "2025", "Starbucks")
+STEP 1: Find the main keyword in the question (e.g., "gym", "Food", "2025", "Starbucks")
 
 STEP 2: Check where it belongs:
 - In BROAD GROUPS list above? → Use 'major category' column
@@ -63,9 +64,9 @@ Q: "Total spent on Food?"
 → "Food" is in BROAD GROUPS → Use PATTERN A
 result = df[df['major category'].str.lower() == 'food']['Expense'].sum()
 
-Q: "How much on dining?"
-→ "dining" is in SPECIFIC CATEGORIES → Use PATTERN B
-result = df[df['category'].str.lower() == 'dining']['Expense'].sum()
+Q: "How much on gym?"
+→ "gym" is in SPECIFIC CATEGORIES → Use PATTERN B
+result = df[df['category'].str.lower() == 'gym']['Expense'].sum()
 
 Q: "Spending at Starbucks?"
 → "Starbucks" not in lists → Use PATTERN C
@@ -75,9 +76,9 @@ Q: "Expenses in 2024"
 → "2024" is a year → Use PATTERN D
 result = df[df['Date'].dt.year == 2024]['Expense'].sum()
 
-Q: "how much have I spent on dining in 2025?"
-→ "dining" in SPECIFIC CATEGORIES + "2025" is year → Use PATTERN F
-result = df[(df['category'].str.lower() == 'dining') & (df['Date'].dt.year == 2025)]['Expense'].sum()
+Q: "how much have I spent on snacks in 2025?"
+→ "snacks" in SPECIFIC CATEGORIES + "2025" is year → Use PATTERN F
+result = df[(df['category'].str.lower() == 'snacks') & (df['Date'].dt.year == 2025)]['Expense'].sum()
 
 Q: "Food expenses in December 2024"
 → "Food" in BROAD GROUPS + month/year → Use PATTERN G + month
@@ -96,6 +97,7 @@ result = "Graph generated"
 - Look at BROAD GROUPS and SPECIFIC CATEGORIES lists to decide which column to filter
 - Replace KEYWORD with lowercase word from question
 - Replace YEAR with number, MONTH with number (1-12)
+- IMPORTANT: When comparing dates (e.g., past 6 months), use `pd.Timestamp.now()` which is timezone-naive to match the `df['Date']` column.
 </rules>
 
 USER QUESTION: "{prompt}"

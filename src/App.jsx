@@ -32,7 +32,7 @@ function App() {
     startDate: new Date(),
     endDate: new Date(),
   });
-  const [currency, setCurrency] = useState('JPY');
+  const currency = 'JPY';
   const [isDemo, setIsDemo] = useState(false);
   const [dateBounds, setDateBounds] = useState({ min: '', max: '' });
 
@@ -222,17 +222,7 @@ function App() {
               <Sliders size={14} /> Analysis
             </h3>
             <div className="space-y-3">
-              <div className="space-y-2">
-                <label className="text-sm text-slate-400">Currency</label>
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full bg-slate-800/50 border border-white/10 rounded-lg p-2 text-sm outline-none focus:border-primary"
-                >
-                  <option value="JPY">¥ JPY</option>
-                  <option value="INR">₹ INR</option>
-                </select>
-              </div>
+
 
               <div className="flex items-center justify-between group cursor-pointer" onClick={() => setFilters(f => ({ ...f, includeRent: !f.includeRent }))}>
                 <span className="text-sm text-slate-300">Include Rent</span>

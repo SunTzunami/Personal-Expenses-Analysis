@@ -30,11 +30,15 @@ app.add_middleware(
 # Category Mapping (Mirrors src/utils/categoryMapping.js)
 CATEGORY_MAPPING = {
     # Food
-    'grocery': 'Food', 'snacks': 'Food', 'dining': 'Food', 'cafe': 'Food',
-    'coffee': 'Food',
+    'grocery': 'Food', 'snacks': 'Food', 'cafe': 'Food',
+    'coffee': 'Food', 'café': 'Food', 'bento': 'Food', 'beverage': 'Food',
+    'eating from combini': 'Food', 'eating out': 'Food', 'eating with friend': 'Food',
 
     # Housing
     'housing': 'Housing and Utilities', 'utility': 'Housing and Utilities',
+    'internet bill': 'Housing and Utilities', 'electricity bill': 'Housing and Utilities',
+    'gas bill': 'Housing and Utilities', 'water & sewage bill': 'Housing and Utilities',
+    'phone bill': 'Housing and Utilities', 'water': 'Housing and Utilities',
 
     # Household & Clothing
     'clothing': 'Household and Clothing', 'household': 'Household and Clothing',
@@ -43,7 +47,8 @@ CATEGORY_MAPPING = {
     # Fitness
     'supplements': 'Fitness', 'shoes': 'Fitness', 'sports event': 'Fitness',
     'sports watch': 'Fitness', 'sports clothing': 'Fitness', 'sports rental': 'Fitness',
-    'gym': 'Fitness', 'sports equipment': 'Fitness',
+    'gym': 'Fitness', 'sports equipment': 'Fitness', 'basketball game': 'Fitness',
+    'footbal game': 'Fitness', 'futsal game': 'Fitness',
 
     # Transportation
     'commute': 'Transportation', 'ride share': 'Transportation', 'tokyo metro': 'Transportation',
@@ -57,9 +62,14 @@ CATEGORY_MAPPING = {
 
     # Misc
     'medicines': 'Miscellaneous', 'personal care': 'Miscellaneous', 'misc': 'Miscellaneous',
-    'entertainment': 'Miscellaneous', 'books': 'Miscellaneous', 'help': 'Miscellaneous',
+    'books': 'Miscellaneous', 'help': 'Miscellaneous',
     'charity': 'Miscellaneous', 'donation': 'Miscellaneous', 'entrance fees': 'Miscellaneous',
     'park entrance fees': 'Miscellaneous', 'healthcare': 'Miscellaneous',
+
+    # Entertainment
+    'entertainment': 'Entertainment', 'nomikai': 'Entertainment',
+    'activities': 'Entertainment', 'arcades & karaoke': 'Entertainment',
+    'events & venues': 'Entertainment',
 
     # Education
     'education': 'Education',
@@ -72,6 +82,7 @@ class AnalyzeRequest(BaseModel):
     chat_model: Optional[str] = None
     metadata: str
     currency: str
+    options: Optional[dict] = None
 
 class AnalyzeResponse(BaseModel):
     result: Optional[str] = None
@@ -103,7 +114,7 @@ async def analyze(request: AnalyzeRequest):
         
         df = pd.DataFrame(request.data)
         if 'Date' in df.columns:
-            df['Date'] = pd.to_datetime(df['Date'])
+            df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
 
         # 1b. Enhance DataFrame for Finetuned Model
         # Ensure 'category' is lowercase for matching
@@ -124,10 +135,13 @@ async def analyze(request: AnalyzeRequest):
 
         # 2. Get Code from LLM
         analysis_template = load_prompt_template("analysis_prompt.txt")
+        from datetime import datetime
+        current_date_str = datetime.now().strftime("%Y-%m-%d")
+        
         system_prompt = analysis_template.format(
             metadata=request.metadata,
-            currency=request.currency,
-            prompt=request.prompt
+            prompt=request.prompt,
+            current_date=current_date_str
         )
 
         logger.info("*" * 50)
@@ -135,11 +149,11 @@ async def analyze(request: AnalyzeRequest):
         logger.info(system_prompt)
         logger.info("*" * 50)
 
-        logger.info(f"Querying LLM ({request.model}) for code generation...")
+        logger.info(f"Querying LLM ({request.model}) for code generation with options: {request.options}")
         response = ollama.chat(model=request.model, messages=[
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': request.prompt}
-        ])
+        ], options=request.options)
 
         llm_content = response['message']['content'].strip()
         
@@ -191,8 +205,7 @@ async def analyze(request: AnalyzeRequest):
             
             summary_template = load_prompt_template("summary_prompt.txt")
             summary_prompt = summary_template.format(
-                result=result,
-                currency=request.currency
+                result=result
             )
 
             # Use dedicated chat model if provided, else fallback to code model
@@ -202,7 +215,7 @@ async def analyze(request: AnalyzeRequest):
             summary_response = ollama.chat(model=target_model, messages=[
                 {'role': 'system', 'content': summary_prompt},
                 {'role': 'user', 'content': f"Question: {request.prompt}\nResult: {result}"}
-            ])
+            ], options=request.options)
             final_result = summary_response['message']['content'].strip()
             logger.info(f"Summary generated: {final_result}")
 

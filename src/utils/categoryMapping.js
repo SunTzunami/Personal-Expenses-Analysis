@@ -26,7 +26,6 @@ export const CATEGORY_MAPPING = {
     // Food
     'grocery': 'Food', 'Grocery': 'Food',
     'snacks': 'Food', 'Snacks': 'Food',
-    'dining': 'Food', 'Dining': 'Food',
     'cafe': 'Food', 'Coffee': 'Food',
     'Cafe': 'Food', 'café': 'Food', 'Café': 'Food',
     'bento': 'Food', 'Bento': 'Food',

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Send, X, Bot, User, Loader2, Database, AlertCircle, RefreshCw, Clock } from 'lucide-react';
+import { MessageSquare, Send, X, Bot, User, Loader2, Database, AlertCircle, RefreshCw, Clock, Settings, Info } from 'lucide-react';
 import { checkOllamaConnection, listModels, chatWithOllama } from '../utils/ollama';
 import { PYTHON_ANALYSIS_PROMPT, getPromptMetadata } from '../utils/analysisTools';
 import { runPython, initPyodide } from '../utils/pythonRunner';
@@ -16,6 +16,12 @@ export default function ChatInterface({ data, onClose, visible, currency }) {
     const [isConnected, setIsConnected] = useState(false);
     const [connectionError, setConnectionError] = useState(null);
     const [elapsedTime, setElapsedTime] = useState(0);
+    const [showSettings, setShowSettings] = useState(false);
+
+    // LLM Config - Defaults set for strict/restrictive generation
+    const [temperature, setTemperature] = useState(0.0);
+    const [topP, setTopP] = useState(0.1);
+    const [topK, setTopK] = useState(10);
 
     const messagesEndRef = useRef(null);
 
@@ -110,6 +116,8 @@ export default function ChatInterface({ data, onClose, visible, currency }) {
 
             const metadataStr = `
 COLUMNS: ${columnInfo}
+Be careful about the columns data types when generating code.
+
 ${dateContext}
 
 SPECIFIC CATEGORIES (search in category column): ${metadata.uniqueCategories.join(', ')}
@@ -118,13 +126,14 @@ BROAD GROUPS (search in major category column): ${metadata.uniqueNewCategories.j
 MAPPINGS (for context): ${mappingStr}
             `;
 
-            // 2. Execute Analysis (Attempt Backend First)
+            // 2. Execute Code
             const analysisResult = await runPython(null, data, {
                 prompt: currentInput,
                 metadata: metadataStr,
                 currency: currency,
                 model: selectedCodeModel,
-                chatModel: selectedChatModel
+                chatModel: selectedChatModel,
+                options: { temperature, top_p: topP, top_k: topK }
             });
 
             let { result, fig, code, backend } = analysisResult;
@@ -139,13 +148,14 @@ MAPPINGS (for context): ${mappingStr}
 
                 const systemPrompt = PYTHON_ANALYSIS_PROMPT
                     .replace('{{metadata}}', metadataStr)
-                    .replace('{{prompt}}', currentInput);
+                    .replace('{{prompt}}', currentInput)
+                    .replace('{{current_date}}', new Date().toISOString().split('T')[0]);
 
                 const response = await chatWithOllama(selectedCodeModel, [
                     { role: 'system', content: systemPrompt },
                     ...messages.filter(m => m.role !== 'system'),
                     userMessage
-                ], false);
+                ], false, { temperature, top_p: topP, top_k: topK });
 
                 code = response.content.trim();
                 const pythonMatch = code.match(/```python\s*([\s\S]*?)```/);
@@ -167,7 +177,7 @@ Currency: ${currency}`;
                 const summaryResponse = await chatWithOllama(selectedChatModel, [
                     { role: 'system', content: summaryPrompt },
                     { role: 'user', content: `Question: ${currentInput}\nResult: ${result}` }
-                ], false);
+                ], false, { temperature, top_p: topP, top_k: topK });
                 finalContent = summaryResponse.content;
             }
 
@@ -197,7 +207,7 @@ Currency: ${currency}`;
             initial={{ opacity: 0, x: 300 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 300 }}
-            className="fixed right-0 top-0 bottom-0 w-[600px] glass-panel border-l border-white/10 z-50 flex flex-col shadow-2xl bg-slate-900/95 backdrop-blur-xl"
+            className="fixed right-0 top-0 bottom-0 w-[600px] z-50 flex flex-col shadow-2xl bg-slate-900/70 backdrop-blur-xl border-l border-white/10"
         >
             {/* Header */}
             <div className="p-4 border-b border-white/10 flex justify-between items-center bg-slate-800/50">
@@ -205,10 +215,106 @@ Currency: ${currency}`;
                     <Bot className="text-primary" />
                     <h2 className="font-semibold text-white">AI Assistant</h2>
                 </div>
-                <button onClick={onClose} className="p-1 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-white">
-                    <X size={20} />
-                </button>
+                <div className="flex items-center gap-2">
+                    <div onClick={() => setShowSettings(!showSettings)} className="p-1.5 rounded-lg hover:bg-slate-700/50 cursor-pointer text-slate-400 hover:text-white transition-colors">
+                        <Settings size={16} />
+                    </div>
+                    <div onClick={onClose} className="p-1.5 rounded-lg hover:bg-red-500/20 cursor-pointer text-slate-400 hover:text-red-400 transition-colors">
+                        <X size={16} />
+                    </div>
+                </div>
             </div>
+
+            {/* Settings Panel */}
+            <AnimatePresence>
+                {showSettings && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="bg-slate-900/50 border-b border-white/10 overflow-hidden"
+                    >
+                        <div className="p-4 space-y-4">
+                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">LLM Configuration</h4>
+
+                            {/* Temperature */}
+                            <div className="space-y-1">
+                                <div className="flex justify-between items-center text-xs">
+                                    <div className="flex items-center gap-1.5 group relative">
+                                        <span className="text-slate-300">Temperature</span>
+                                        <div className="cursor-help text-slate-500 hover:text-primary transition-colors">
+                                            <Info size={12} />
+                                        </div>
+                                        <div className="absolute left-0 bottom-full mb-2 w-48 p-2 bg-black/90 border border-white/10 rounded-lg text-[10px] text-slate-300 hidden group-hover:block z-50 backdrop-blur-xl shadow-xl">
+                                            Controls randomness. Lower is more deterministic (better for code), higher is more creative.
+                                        </div>
+                                    </div>
+                                    <span className="text-primary font-mono">{temperature}</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1"
+                                    step="0.1"
+                                    value={temperature}
+                                    onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                                    className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:rounded-full"
+                                />
+                            </div>
+
+                            {/* Top P */}
+                            <div className="space-y-1">
+                                <div className="flex justify-between items-center text-xs">
+                                    <div className="flex items-center gap-1.5 group relative">
+                                        <span className="text-slate-300">Top P</span>
+                                        <div className="cursor-help text-slate-500 hover:text-primary transition-colors">
+                                            <Info size={12} />
+                                        </div>
+                                        <div className="absolute left-0 bottom-full mb-2 w-48 p-2 bg-black/90 border border-white/10 rounded-lg text-[10px] text-slate-300 hidden group-hover:block z-50 backdrop-blur-xl shadow-xl">
+                                            Nucleus sampling. Limits choices to top percentage of probability mass.
+                                        </div>
+                                    </div>
+                                    <span className="text-primary font-mono">{topP}</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1"
+                                    step="0.05"
+                                    value={topP}
+                                    onChange={(e) => setTopP(parseFloat(e.target.value))}
+                                    className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:rounded-full"
+                                />
+                            </div>
+
+                            {/* Top K */}
+                            <div className="space-y-1">
+                                <div className="flex justify-between items-center text-xs">
+                                    <div className="flex items-center gap-1.5 group relative">
+                                        <span className="text-slate-300">Top K</span>
+                                        <div className="cursor-help text-slate-500 hover:text-primary transition-colors">
+                                            <Info size={12} />
+                                        </div>
+                                        <div className="absolute left-0 bottom-full mb-2 w-48 p-2 bg-black/90 border border-white/10 rounded-lg text-[10px] text-slate-300 hidden group-hover:block z-50 backdrop-blur-xl shadow-xl">
+                                            Top-k sampling. Limits choices to the top K most likely tokens.
+                                        </div>
+                                    </div>
+                                    <span className="text-primary font-mono">{topK}</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="100"
+                                    step="1"
+                                    value={topK}
+                                    onChange={(e) => setTopK(parseInt(e.target.value))}
+                                    className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:rounded-full"
+                                />
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Connection / Model Status */}
             <div className="p-2 bg-slate-800/30 text-xs flex items-center justify-between border-b border-white/5">
@@ -258,7 +364,7 @@ Currency: ${currency}`;
                         <Bot size={48} className="opacity-20" />
                         <p className="text-sm">Ask questions about your expenses!</p>
                         <div className="grid grid-cols-1 gap-2 w-full">
-                            {["Most expensive month?", "Total spent on Food?", "Compare last 2 years"].map(q => (
+                            {["Plot Food expenses for the past 6 months", "Compare Transportation 2024 vs 2025", "Average spending on gym in 2024?"].map(q => (
                                 <button key={q} onClick={() => setInput(q)} className="text-xs p-2 bg-slate-800/50 rounded hover:bg-slate-700 text-left transition text-slate-400 hover:text-primary">
                                     "{q}"
                                 </button>
@@ -279,7 +385,7 @@ Currency: ${currency}`;
                                 'bg-primary/20 text-primary'}`}>
                             {msg.role === 'user' ? <User size={14} /> : msg.isSystem ? <Database size={14} /> : <Bot size={14} />}
                         </div>
-                        <div className={`p-3 rounded-2xl ${msg.role === 'user' ? 'max-w-[85%] bg-indigo-600 text-white' : 'max-w-[95%] bg-slate-800 text-slate-200'} text-sm ${msg.isError ? 'bg-red-500/10 text-red-200 border border-red-500/20' :
+                        <div className={`p-3 rounded-2xl ${msg.role === 'user' ? 'max-w-[85%] bg-indigo-600 text-white' : (msg.fig ? 'w-full max-w-[95%]' : 'max-w-[95%]') + ' bg-slate-800 text-slate-200'} text-sm ${msg.isError ? 'bg-red-500/10 text-red-200 border border-red-500/20' :
                             msg.isSystem ? 'bg-slate-800/50 text-slate-400 italic' : ''
                             }`}>
                             {msg.content}

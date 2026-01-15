@@ -37,9 +37,10 @@ export async function listModels() {
  * @param {Array} messages - History of messages [{role: 'user', content: '...'}].
  * @param {boolean} stream - Whether to stream the response (default true).
  * @param {Function} onChunk - Callback for streaming chunks.
+ * @param {Object} options - Additional options (temperature, top_p, etc).
  * @returns {Promise<Object>} The final response object.
  */
-export async function chatWithOllama(model, messages, stream = true, onChunk = null) {
+export async function chatWithOllama(model, messages, stream = true, onChunk = null, options = {}) {
     try {
         const response = await fetch(`${OLLAMA_BASE_URL}/chat`, {
             method: 'POST',
@@ -48,6 +49,7 @@ export async function chatWithOllama(model, messages, stream = true, onChunk = n
                 model,
                 messages,
                 stream,
+                options
             }),
         });
 
