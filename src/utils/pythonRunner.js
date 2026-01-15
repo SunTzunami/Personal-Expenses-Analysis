@@ -189,10 +189,13 @@ else:
 // Analysis Tools Library
 def plot_time_series(df, category=None, major_category=None, year=None, start_year=None, end_year=None, months=None, title=None):
     data = df.copy()
+    if 'Date' in data.columns:
+        data['Date'] = pd.to_datetime(data['Date'])
+    
     if year:
-        data = data[pd.to_datetime(data['Date']).dt.year == int(year)]
+        data = data[data['Date'].dt.year == int(year)]
     elif start_year and end_year:
-        data = data[(pd.to_datetime(data['Date']).dt.year >= int(start_year)) & (pd.to_datetime(data['Date']).dt.year <= int(end_year))]
+        data = data[(data['Date'].dt.year >= int(start_year)) & (data['Date'].dt.year <= int(end_year))]
     
     if category and major_category:
         cat_f = data[data['category'].str.lower() == category.lower()]
@@ -206,48 +209,71 @@ def plot_time_series(df, category=None, major_category=None, year=None, start_ye
     
     if data.empty: return None, "No data found for this period."
     data = data.sort_values('Date')
-    fig = px.line(data, x='Date', y='Expense', title=title or f"Spending Over Time")
-    return fig, f"Plot generated for {category or major_category or 'Total'}"
+    
+    label = f"{category or major_category or 'Total'}"
+    use_bars = len(data) <= 20
+    fig = go.Figure()
+    
+    if use_bars:
+        fig.add_trace(go.Bar(x=data['Date'], y=data['Expense'], name='Expenses', marker=dict(color='#3b82f6')))
+    else:
+        fig.add_trace(go.Scatter(x=data['Date'], y=data['Expense'], mode='lines+markers', name='Daily', line=dict(color='#3b82f6')))
+        if len(data) > 7:
+            data['MA7'] = data['Expense'].rolling(window=7, min_periods=1).mean()
+            fig.add_trace(go.Scatter(x=data['Date'], y=data['MA7'], name='7-Day Avg', line=dict(color='#f59e0b', dash='dash')))
+            
+    fig.update_layout(title=title or f"{label} Over Time", template='plotly_white')
+    return fig, f"Generated {'bar chart' if use_bars else 'plot'} for {label}"
 
-def plot_pie_chart(df, year=None, major_category=None, title=None):
+def plot_pie_chart(df, year=None, major_category=None, category=None, title=None):
     data = df.copy()
     if year: data = data[pd.to_datetime(data['Date']).dt.year == int(year)]
     if major_category:
         data = data[data['major category'].str.lower() == major_category.lower()]
         names = 'category'
+    elif category:
+        data = data[data['category'].str.lower() == category.lower()]
+        names = 'category'
     else:
         names = 'major category'
-    if data.empty: return None, "No data for pie chart."
-    fig = px.pie(data, names=names, values='Expense', title=title or "Breakdown")
-    return fig, "Plot generated"
+    if data.empty: return None, "No data found."
+    
+    grouped = data.groupby(names)['Expense'].sum().reset_index()
+    fig = go.Figure(data=[go.Pie(labels=grouped[names], values=grouped['Expense'], textinfo='label+percent')])
+    fig.update_layout(title=title or "Expense Breakdown", template='plotly_white')
+    return fig, "Pie chart generated"
 
 def plot_comparison(df, category=None, major_category=None, y1=None, y2=None, title=None):
     data = df.copy()
     data['Year'] = pd.to_datetime(data['Date']).dt.year.astype(str)
     filtered = data[data['Year'].isin([str(y1), str(y2)])]
     if category: filtered = filtered[filtered['category'].str.lower() == category.lower()]
-    if major_category: filtered = filtered[filtered['major category'].str.lower() == major_category.lower()]
+    elif major_category: filtered = filtered[filtered['major category'].str.lower() == major_category.lower()]
     if filtered.empty: return None, "No data to compare."
-    fig = px.scatter(filtered.sort_values('Date'), x='Date', y='Expense', color='Year', title=title or "Comparison")
-    return fig, "Plot generated"
+    
+    fig = go.Figure()
+    for year in [str(y1), str(y2)]:
+        fig.add_trace(go.Box(y=filtered[filtered['Year'] == year]['Expense'], name=year))
+    fig.update_layout(title=title or "Comparison", template='plotly_white')
+    return fig, f"Comparison generated for {y1} vs {y2}"
 
 def calculate_sum(df, category=None, major_category=None, year=None, remarks=None):
     data = df.copy()
     if year: data = data[pd.to_datetime(data['Date']).dt.year == int(year)]
     if category: data = data[data['category'].str.lower() == category.lower()]
-    if major_category: data = data[data['major category'].str.lower() == major_category.lower()]
+    elif major_category: data = data[data['major category'].str.lower() == major_category.lower()]
     if remarks: data = data[data['remarks'].str.contains(remarks, case=False, na=False)]
     if data.empty: return None, "No transactions found."
-    return None, f"Total: {round(data['Expense'].sum(), 2)}"
+    return None, f"Total: ¥{round(data['Expense'].sum(), 2):,} ({len(data)} txns)"
 
 def calculate_average(df, category=None, major_category=None, year=None, remarks=None):
     data = df.copy()
     if year: data = data[pd.to_datetime(data['Date']).dt.year == int(year)]
     if category: data = data[data['category'].str.lower() == category.lower()]
-    if major_category: data = data[data['major category'].str.lower() == major_category.lower()]
+    elif major_category: data = data[data['major category'].str.lower() == major_category.lower()]
     if remarks: data = data[data['remarks'].str.contains(remarks, case=False, na=False)]
-    if data.empty: return None, "No data for average."
-    return None, f"Average: {round(data['Expense'].mean(), 2)}"
+    if data.empty: return None, "No data found."
+    return None, f"Average: ¥{round(data['Expense'].mean(), 2):,} (Median: ¥{round(data['Expense'].median(), 2):,})"
 
 def run_significance_test(df, category=None, major_category=None, y1=None, y2=None):
     from scipy import stats
@@ -259,8 +285,10 @@ def run_significance_test(df, category=None, major_category=None, y1=None, y2=No
         elif major_category: d = d[d['major category'].str.lower() == major_category.lower()]
         return d['Expense']
     s1, s2 = get_s(y1), get_s(y2)
+    if len(s1) < 2 or len(s2) < 2: return None, "Insufficient data."
     t, p = stats.ttest_ind(s1, s2, equal_var=False, nan_policy='omit')
-    return None, f"Avg {y1}: {round(s1.mean(), 2)}, Avg {y2}: {round(s2.mean(), 2)} | P-value: {round(p, 4)}"
+    diff = "significant" if p < 0.05 else "not significant"
+    return None, f"{y1} Avg: ¥{round(s1.mean(), 2):,}, {y2} Avg: ¥{round(s2.mean(), 2):,}. Difference is {diff} (p={round(p, 4)})"
 
 exec_scope = {
     "df": df, "pd": pd, "np": np, "px": __import__('plotly.express'),

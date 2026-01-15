@@ -4,3 +4,4 @@ pandas
 ollama
 plotly
 python-multipart
+scipy
